@@ -1,0 +1,14 @@
+# Ambiente local
+.env
+
+# Dados e configs gerados em runtime
+config/
+data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/

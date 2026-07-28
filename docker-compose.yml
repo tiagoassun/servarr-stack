@@ -1,0 +1,232 @@
+# Servarr stack - apps *Arr + Bazarr + FlareSolverr + qBittorrent + Plex + Gluetun
+# Estrutura de pastas alinhada ao TRaSH Guides (hardlinks / atomic moves).
+# Docs: https://wiki.servarr.com/ | https://trash-guides.info/
+# VPN: qBittorrent e FlareSolverr usam network_mode do Gluetun (kill switch).
+
+name: servarr-stack
+
+x-common-env: &common-env
+  PUID: ${PUID:-1000}
+  PGID: ${PGID:-1000}
+  TZ: ${TZ:-America/Sao_Paulo}
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  # --- VPN (porta de saida de qBittorrent + FlareSolverr) ---
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    environment:
+      VPN_SERVICE_PROVIDER: ${VPN_SERVICE_PROVIDER:?defina VPN_SERVICE_PROVIDER no .env}
+      VPN_TYPE: ${VPN_TYPE:-wireguard}
+      OPENVPN_USER: ${OPENVPN_USER:-}
+      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD:-}
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:-}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:-}
+      WIREGUARD_PUBLIC_KEY: ${WIREGUARD_PUBLIC_KEY:-}
+      WIREGUARD_ENDPOINT_IP: ${WIREGUARD_ENDPOINT_IP:-}
+      WIREGUARD_ENDPOINT_PORT: ${WIREGUARD_ENDPOINT_PORT:-}
+      SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
+      SERVER_CITIES: ${SERVER_CITIES:-}
+      SERVER_REGIONS: ${SERVER_REGIONS:-}
+      # Subnets locais que devem acessar WebUI via VPN container
+      FIREWALL_OUTBOUND_SUBNETS: ${FIREWALL_OUTBOUND_SUBNETS:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/gluetun:/gluetun
+    ports:
+      # qBittorrent (via network_mode)
+      - "${PORT_QBITTORRENT:-8080}:8080"
+      - "${PORT_QBITTORRENT_TORRENTING:-6881}:6881"
+      - "${PORT_QBITTORRENT_TORRENTING:-6881}:6881/udp"
+      # FlareSolverr (via network_mode)
+      - "${PORT_FLARESOLVERR:-8191}:8191"
+    networks:
+      - servarr
+    healthcheck:
+      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    <<: *restart
+
+  # --- Indexers ---
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/prowlarr:/config
+    ports:
+      - "${PORT_PROWLARR:-9696}:9696"
+    networks:
+      - servarr
+    <<: *restart
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      LOG_LEVEL: info
+      LOG_HTML: "false"
+      CAPTCHA_SOLVER: none
+      TZ: ${TZ:-America/Sao_Paulo}
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    <<: *restart
+
+  # --- Media automation (*Arr) ---
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/sonarr:/config
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - "${PORT_SONARR:-8989}:8989"
+    networks:
+      - servarr
+    depends_on:
+      - prowlarr
+      - qbittorrent
+    <<: *restart
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/radarr:/config
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - "${PORT_RADARR:-7878}:7878"
+    networks:
+      - servarr
+    depends_on:
+      - prowlarr
+      - qbittorrent
+    <<: *restart
+
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/lidarr:/config
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - "${PORT_LIDARR:-8686}:8686"
+    networks:
+      - servarr
+    depends_on:
+      - prowlarr
+      - qbittorrent
+    <<: *restart
+
+  readarr:
+    image: lscr.io/linuxserver/readarr:develop
+    container_name: readarr
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/readarr:/config
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - "${PORT_READARR:-8787}:8787"
+    networks:
+      - servarr
+    depends_on:
+      - prowlarr
+      - qbittorrent
+    <<: *restart
+
+  whisparr:
+    image: ghcr.io/hotio/whisparr:latest
+    container_name: whisparr
+    environment:
+      <<: *common-env
+      UMASK: "002"
+    volumes:
+      - ${CONFIG_ROOT:-./config}/whisparr:/config
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - "${PORT_WHISPARR:-6969}:6969"
+    networks:
+      - servarr
+    depends_on:
+      - prowlarr
+      - qbittorrent
+    <<: *restart
+
+  # --- Legendas ---
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/bazarr:/config
+      - ${DATA_ROOT:-./data}/media:/data/media
+    ports:
+      - "${PORT_BAZARR:-6767}:6767"
+    networks:
+      - servarr
+    depends_on:
+      - sonarr
+      - radarr
+    <<: *restart
+
+  # --- Download client (trafego so pela VPN) ---
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      <<: *common-env
+      WEBUI_PORT: ${QBITTORRENT_WEBUI_PORT:-8080}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/qbittorrent:/config
+      - ${DATA_ROOT:-./data}/torrents:/data/torrents
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    <<: *restart
+
+  # --- Media server ---
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    environment:
+      <<: *common-env
+      VERSION: docker
+      PLEX_CLAIM: ${PLEX_CLAIM:-}
+      ADVERTISE_IP: ${PLEX_ADVERTISE_IP:-}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/plex:/config
+      - ${DATA_ROOT:-./data}/media:/data/media:ro
+    ports:
+      - "${PORT_PLEX:-32400}:32400"
+    networks:
+      - servarr
+    <<: *restart
+
+networks:
+  servarr:
+    name: servarr
+    driver: bridge
