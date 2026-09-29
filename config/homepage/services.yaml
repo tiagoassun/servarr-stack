@@ -1,0 +1,70 @@
+# Stub inicial do Homepage - ajuste URLs/API keys conforme for configurando.
+# Docs: https://gethomepage.dev/
+
+- Media:
+    - Plex:
+        href: http://localhost:32400/web
+        description: Media server
+        icon: plex.png
+    - Seerr:
+        href: http://localhost:5055
+        description: Pedidos de midia
+        icon: overseerr.png
+    - Wizarr:
+        href: http://localhost:5690
+        description: Convites de usuarios
+        icon: mdi-account-plus
+
+- Automation:
+    - Sonarr:
+        href: http://localhost:8989
+        description: Series
+        icon: sonarr.png
+    - Radarr:
+        href: http://localhost:7878
+        description: Filmes
+        icon: radarr.png
+    - Lidarr:
+        href: http://localhost:8686
+        description: Musica
+        icon: lidarr.png
+    - Readarr:
+        href: http://localhost:8787
+        description: Livros
+        icon: readarr.png
+    - Whisparr:
+        href: http://localhost:6969
+        description: Adulto
+        icon: whisparr.png
+    - Bazarr:
+        href: http://localhost:6767
+        description: Legendas
+        icon: bazarr.png
+    - Prowlarr:
+        href: http://localhost:9696
+        description: Indexers
+        icon: prowlarr.png
+    - Profilarr:
+        href: http://localhost:6868
+        description: TRaSH profiles
+        icon: mdi-tune
+
+- Download:
+    - qBittorrent:
+        href: http://localhost:8080
+        description: Torrents (via Gluetun)
+        icon: qbittorrent.png
+
+- Ops:
+    - Tautulli:
+        href: http://localhost:8181
+        description: Metricas Plex
+        icon: tautulli.png
+    - Tdarr:
+        href: http://localhost:8265
+        description: Transcode
+        icon: tdarr.png
+    - Maintainerr:
+        href: http://localhost:6246
+        description: Limpeza de biblioteca
+        icon: mdi-broom

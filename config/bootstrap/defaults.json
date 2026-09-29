@@ -1,0 +1,214 @@
+{
+  "description": "Defaults versionados: wiring interno sem catalogo (filmes/series/musicas/livros). Biblioteca começa vazia.",
+  "waitSeconds": 180,
+  "pollIntervalSeconds": 5,
+  "qbittorrent": {
+    "host": "gluetun",
+    "port": 8080,
+    "useSsl": false,
+    "urlBase": "/",
+    "username": "admin",
+    "passwordEnv": "QBITTORRENT_PASSWORD",
+    "categories": {
+      "tv": "/data/torrents/tv",
+      "movies": "/data/torrents/movies",
+      "music": "/data/torrents/music",
+      "books": "/data/torrents/books",
+      "xxx": "/data/torrents/xxx"
+    }
+  },
+  "flaresolverr": {
+    "url": "http://gluetun:8191/"
+  },
+  "mediaManagement": {
+    "autoUnmonitorPreviouslyDownloadedEpisodes": false,
+    "autoUnmonitorPreviouslyDownloadedMovies": false,
+    "recycleBin": "",
+    "recycleBinCleanupDays": 7,
+    "downloadPropersAndRepacks": "preferAndUpgrade",
+    "createEmptySeriesFolders": false,
+    "createEmptyMovieFolders": false,
+    "deleteEmptyFolders": false,
+    "fileDate": "none",
+    "rescanAfterRefresh": "always",
+    "setPermissionsLinux": false,
+    "chmodFolder": "755",
+    "chownGroup": "",
+    "episodeTitleRequired": "always",
+    "skipFreeSpaceCheckWhenImporting": false,
+    "minimumFreeSpaceWhenImporting": 100,
+    "copyUsingHardlinks": true,
+    "useScriptImport": false,
+    "scriptImportPath": "",
+    "importExtraFiles": false,
+    "extraFileExtensions": "srt",
+    "enableMediaInfo": true,
+    "paths": []
+  },
+  "apps": {
+    "sonarr": {
+      "baseUrlEnv": "SONARR_URL",
+      "defaultBaseUrl": "http://sonarr:8989",
+      "apiKeyEnv": "SONARR_API_KEY",
+      "configXml": "sonarr/config.xml",
+      "rootFolder": "/data/media/tv",
+      "qbitCategory": "tv",
+      "prowlarrSync": true,
+      "kind": "sonarr"
+    },
+    "radarr": {
+      "baseUrlEnv": "RADARR_URL",
+      "defaultBaseUrl": "http://radarr:7878",
+      "apiKeyEnv": "RADARR_API_KEY",
+      "configXml": "radarr/config.xml",
+      "rootFolder": "/data/media/movies",
+      "qbitCategory": "movies",
+      "prowlarrSync": true,
+      "kind": "radarr"
+    },
+    "lidarr": {
+      "baseUrlEnv": "LIDARR_URL",
+      "defaultBaseUrl": "http://lidarr:8686",
+      "apiKeyEnv": "LIDARR_API_KEY",
+      "configXml": "lidarr/config.xml",
+      "rootFolder": "/data/media/music",
+      "qbitCategory": "music",
+      "prowlarrSync": true,
+      "kind": "lidarr"
+    },
+    "readarr": {
+      "baseUrlEnv": "READARR_URL",
+      "defaultBaseUrl": "http://readarr:8787",
+      "apiKeyEnv": "READARR_API_KEY",
+      "configXml": "readarr/config.xml",
+      "rootFolder": "/data/media/books",
+      "qbitCategory": "books",
+      "prowlarrSync": true,
+      "kind": "readarr"
+    },
+    "whisparr": {
+      "baseUrlEnv": "WHISPARR_URL",
+      "defaultBaseUrl": "http://whisparr:6969",
+      "apiKeyEnv": "WHISPARR_API_KEY",
+      "configXml": "whisparr/config.xml",
+      "rootFolder": "/data/media/xxx",
+      "qbitCategory": "xxx",
+      "prowlarrSync": true,
+      "kind": "whisparr"
+    },
+    "prowlarr": {
+      "baseUrlEnv": "PROWLARR_URL",
+      "defaultBaseUrl": "http://prowlarr:9696",
+      "apiKeyEnv": "PROWLARR_API_KEY",
+      "configXml": "prowlarr/config.xml",
+      "kind": "prowlarr"
+    },
+    "bazarr": {
+      "baseUrlEnv": "BAZARR_URL",
+      "defaultBaseUrl": "http://bazarr:6767",
+      "apiKeyEnv": "BAZARR_API_KEY",
+      "configXml": "bazarr/config/config.yaml",
+      "kind": "bazarr"
+    }
+  },
+  "prowlarrApplications": [
+    {
+      "name": "Sonarr",
+      "implementation": "Sonarr",
+      "syncLevel": "fullSync",
+      "appKey": "sonarr",
+      "baseUrl": "http://sonarr:8989",
+      "prowlarrUrl": "http://prowlarr:9696"
+    },
+    {
+      "name": "Radarr",
+      "implementation": "Radarr",
+      "syncLevel": "fullSync",
+      "appKey": "radarr",
+      "baseUrl": "http://radarr:7878",
+      "prowlarrUrl": "http://prowlarr:9696"
+    },
+    {
+      "name": "Lidarr",
+      "implementation": "Lidarr",
+      "syncLevel": "fullSync",
+      "appKey": "lidarr",
+      "baseUrl": "http://lidarr:8686",
+      "prowlarrUrl": "http://prowlarr:9696"
+    },
+    {
+      "name": "Readarr",
+      "implementation": "Readarr",
+      "syncLevel": "fullSync",
+      "appKey": "readarr",
+      "baseUrl": "http://readarr:8787",
+      "prowlarrUrl": "http://prowlarr:9696"
+    },
+    {
+      "name": "Whisparr",
+      "implementation": "Whisparr",
+      "syncLevel": "fullSync",
+      "appKey": "whisparr",
+      "baseUrl": "http://whisparr:6969",
+      "prowlarrUrl": "http://prowlarr:9696"
+    }
+  ],
+  "checklistManual": [
+    {
+      "app": "gluetun",
+      "acao": "Validar VPN no .env e healthcheck healthy antes do resto."
+    },
+    {
+      "app": "qbittorrent",
+      "acao": "Confirmar senha admin (log ou QBITTORRENT_PASSWORD). Categorias sao criadas pelo bootstrap quando a API autenticar."
+    },
+    {
+      "app": "profilarr",
+      "acao": "Abrir :6868, apontar Sonarr/Radarr e sincronizar presets TRaSH (perfis/CFs)."
+    },
+    {
+      "app": "prowlarr-indexers",
+      "acao": "Importar backup de indexers (config/bootstrap/prowlarr-indexers.json local, nao versionar secrets) ou cadastrar na UI. O bootstrap so faz wiring."
+    },
+    {
+      "app": "plex",
+      "acao": "PLEX_CLAIM no .env na primeira subida. Criar libraries Filmes/Series vazias em /data/media/movies e /data/media/tv."
+    },
+    {
+      "app": "seerr",
+      "acao": "Wizard: Plex + Radarr + Sonarr (URLs Docker). Sem pedidos iniciais."
+    },
+    {
+      "app": "wizarr",
+      "acao": "Ligar Plex + Seerr para convites."
+    },
+    {
+      "app": "tautulli",
+      "acao": "Apontar para o Plex e gerar API key."
+    },
+    {
+      "app": "kometa",
+      "acao": "Editar config/kometa/config.yml (token Plex). Libraries vazias sao ok."
+    },
+    {
+      "app": "tdarr",
+      "acao": "WebUI :8265 - libraries em /data/media (vazias no inicio)."
+    },
+    {
+      "app": "maintainerr",
+      "acao": "Ligar Plex/Sonarr/Radarr/Seerr/Tautulli; regras depois que existir midia."
+    },
+    {
+      "app": "unpackerr",
+      "acao": "API keys no .env e recreate do container (ja coberto pelo compose)."
+    },
+    {
+      "app": "homepage",
+      "acao": "Ajustar HOMEPAGE_ALLOWED_HOSTS e URLs em services.yaml se o host nao for localhost."
+    },
+    {
+      "app": "flaresolverr",
+      "acao": "Registrado no Prowlarr pelo bootstrap (http://gluetun:8191/)."
+    }
+  ]
+}
