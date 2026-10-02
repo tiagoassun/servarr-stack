@@ -10,6 +10,12 @@ Instruções para agentes neste repositório de código.
 
 O meta-repo é a fonte de verdade de intenção e escopo.
 
+## Idioma e qualidade
+
+Antes de gravar prosa (README, docs, UI, mensagens):
+
+1. Ler `d:/Docs Locais/Git/__Confg-Projetos/LINGUA-PT-BR.md` e obedecer.
+2. Ler `d:/Docs Locais/Git/__Confg-Projetos/FAZER-CERTO-PRIMEIRA-VEZ.md` e obedecer.
 ## Git flow
 
 ```text
