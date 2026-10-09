@@ -28,11 +28,11 @@ feature/<descricao-kebab>  →  hml  →  main
 - Conventional commits.
 - **Proibido** `workflow_run` disparado a partir de `main` para encadear deploy HML/prod. Deploy HML acompanha a branch `hml`.
 
-## Homologação
+## Homologação e produção
 
-- Stack no **Servidor Pessoal** (também **Notebook Servidor** quando for preciso distinguir do PC do dia a dia).
-- **Proibido** chamar esse host só de "notebook".
-- Portainer / Compose na LAN do Servidor Pessoal; acesso humano preferencial via URL Cloudflare.
+- HML e PRD no **mesmo** host: **Servidor Pessoal** / **Notebook Servidor** (nunca só "notebook").
+- URLs lab: HML `{slug}-hml.tiagoassun.com.br`; PRD `{slug}.tiagoassun.com.br` (ver `__Confg-Projetos/CONVENCOES.md`).
+- Portainer / Compose na LAN; acesso humano preferencial via URL Cloudflare do ambiente.
 
 ## Notas do produto
 
