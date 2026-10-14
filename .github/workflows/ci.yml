@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - hml
+      - main
+  push:
+    branches:
+      - hml
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compose:
+    name: compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        env:
+          VPN_SERVICE_PROVIDER: custom
+          WIREGUARD_PRIVATE_KEY: dummy
+          WIREGUARD_ADDRESSES: 10.0.0.2/32
+          PUID: "1000"
+          PGID: "1000"
+          TZ: America/Sao_Paulo
+          CONFIG_ROOT: /tmp/servarr-config
+          DATA_ROOT: /tmp/servarr-data
+        run: docker compose -f docker-compose.yml config --quiet

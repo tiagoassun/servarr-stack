@@ -1,4 +1,4 @@
-# Servarr stack - apps *Arr + Bazarr + FlareSolverr + qBittorrent + Plex + Gluetun
+# Servarr stack - *Arr + companions + Plex + Gluetun
 # Estrutura de pastas alinhada ao TRaSH Guides (hardlinks / atomic moves).
 # Docs: https://wiki.servarr.com/ | https://trash-guides.info/
 # VPN: qBittorrent e FlareSolverr usam network_mode do Gluetun (kill switch).
@@ -25,7 +25,7 @@ services:
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
     environment:
-      VPN_SERVICE_PROVIDER: ${VPN_SERVICE_PROVIDER:?defina VPN_SERVICE_PROVIDER no .env}
+      VPN_SERVICE_PROVIDER: ${VPN_SERVICE_PROVIDER:?set_VPN_SERVICE_PROVIDER_in_.env}
       VPN_TYPE: ${VPN_TYPE:-wireguard}
       OPENVPN_USER: ${OPENVPN_USER:-}
       OPENVPN_PASSWORD: ${OPENVPN_PASSWORD:-}
@@ -37,17 +37,14 @@ services:
       SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
       SERVER_CITIES: ${SERVER_CITIES:-}
       SERVER_REGIONS: ${SERVER_REGIONS:-}
-      # Subnets locais que devem acessar WebUI via VPN container
       FIREWALL_OUTBOUND_SUBNETS: ${FIREWALL_OUTBOUND_SUBNETS:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - ${CONFIG_ROOT:-./config}/gluetun:/gluetun
     ports:
-      # qBittorrent (via network_mode)
       - "${PORT_QBITTORRENT:-8080}:8080"
       - "${PORT_QBITTORRENT_TORRENTING:-6881}:6881"
       - "${PORT_QBITTORRENT_TORRENTING:-6881}:6881/udp"
-      # FlareSolverr (via network_mode)
       - "${PORT_FLARESOLVERR:-8191}:8191"
     networks:
       - servarr
@@ -208,6 +205,32 @@ services:
         condition: service_healthy
     <<: *restart
 
+  unpackerr:
+    image: golift/unpackerr:latest
+    container_name: unpackerr
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      UN_SONARR_0_URL: http://sonarr:8989
+      UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
+      UN_LIDARR_0_URL: http://lidarr:8686
+      UN_LIDARR_0_API_KEY: ${LIDARR_API_KEY:-}
+      UN_READARR_0_URL: http://readarr:8787
+      UN_READARR_0_API_KEY: ${READARR_API_KEY:-}
+      UN_WHISPARR_0_URL: http://whisparr:6969
+      UN_WHISPARR_0_API_KEY: ${WHISPARR_API_KEY:-}
+    volumes:
+      - ${DATA_ROOT:-./data}:/data
+    user: "${PUID:-1000}:${PGID:-1000}"
+    networks:
+      - servarr
+    depends_on:
+      - sonarr
+      - radarr
+      - qbittorrent
+    <<: *restart
+
   # --- Media server ---
   plex:
     image: lscr.io/linuxserver/plex:latest
@@ -222,6 +245,172 @@ services:
       - ${DATA_ROOT:-./data}/media:/data/media:ro
     ports:
       - "${PORT_PLEX:-32400}:32400"
+    networks:
+      - servarr
+    <<: *restart
+
+  # --- Pedidos e usuarios ---
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    init: true
+    environment:
+      LOG_LEVEL: info
+      TZ: ${TZ:-America/Sao_Paulo}
+      PORT: "5055"
+    volumes:
+      - ${CONFIG_ROOT:-./config}/seerr:/app/config
+    ports:
+      - "${PORT_SEERR:-5055}:5055"
+    networks:
+      - servarr
+    depends_on:
+      - plex
+      - sonarr
+      - radarr
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5055/api/v1/settings/public",
+        ]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    <<: *restart
+
+  wizarr:
+    image: ghcr.io/wizarrrr/wizarr:latest
+    container_name: wizarr
+    environment:
+      <<: *common-env
+      DISABLE_BUILTIN_AUTH: "false"
+    volumes:
+      - ${CONFIG_ROOT:-./config}/wizarr:/data
+    ports:
+      - "${PORT_WIZARR:-5690}:5690"
+    networks:
+      - servarr
+    depends_on:
+      - plex
+      - seerr
+    <<: *restart
+
+  # --- Observabilidade e qualidade ---
+  tautulli:
+    image: lscr.io/linuxserver/tautulli:latest
+    container_name: tautulli
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/tautulli:/config
+    ports:
+      - "${PORT_TAUTULLI:-8181}:8181"
+    networks:
+      - servarr
+    depends_on:
+      - plex
+    <<: *restart
+
+  profilarr:
+    image: santiagosayshey/profilarr:latest
+    container_name: profilarr
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/profilarr:/config
+    ports:
+      - "${PORT_PROFILARR:-6868}:6868"
+    networks:
+      - servarr
+    depends_on:
+      - sonarr
+      - radarr
+    <<: *restart
+
+  # --- Biblioteca Plex ---
+  kometa:
+    image: lscr.io/linuxserver/kometa:latest
+    container_name: kometa
+    environment:
+      <<: *common-env
+      KOMETA_CONFIG: /config/config.yml
+      KOMETA_TIMES: ${KOMETA_TIMES:-03:00}
+      KOMETA_RUN: ${KOMETA_RUN:-False}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/kometa:/config
+    networks:
+      - servarr
+    depends_on:
+      - plex
+    <<: *restart
+
+  tdarr:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr
+    environment:
+      <<: *common-env
+      UMASK_SET: "002"
+      serverIP: 0.0.0.0
+      serverPort: "8266"
+      webUIPort: "8265"
+      internalNode: "true"
+      inContainer: "true"
+      ffmpegVersion: "7"
+      nodeName: InternalNode
+    volumes:
+      - ${CONFIG_ROOT:-./config}/tdarr/server:/app/server
+      - ${CONFIG_ROOT:-./config}/tdarr/configs:/app/configs
+      - ${CONFIG_ROOT:-./config}/tdarr/logs:/app/logs
+      - ${DATA_ROOT:-./data}/media:/data/media
+      - ${DATA_ROOT:-./data}/tdarr-temp:/temp
+    ports:
+      - "${PORT_TDARR_UI:-8265}:8265"
+      - "${PORT_TDARR_SERVER:-8266}:8266"
+    networks:
+      - servarr
+    depends_on:
+      - plex
+    <<: *restart
+
+  maintainerr:
+    image: ghcr.io/maintainerr/maintainerr:latest
+    container_name: maintainerr
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/maintainerr:/opt/data
+      - ${DATA_ROOT:-./data}/media:/data/media
+    ports:
+      - "${PORT_MAINTAINERR:-6246}:6246"
+    networks:
+      - servarr
+    depends_on:
+      - plex
+      - sonarr
+      - radarr
+      - seerr
+      - tautulli
+    <<: *restart
+
+  # --- Dashboard ---
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    environment:
+      <<: *common-env
+      HOMEPAGE_ALLOWED_HOSTS: ${HOMEPAGE_ALLOWED_HOSTS:-localhost:3000,127.0.0.1:3000}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "${PORT_HOMEPAGE:-3000}:3000"
     networks:
       - servarr
     <<: *restart

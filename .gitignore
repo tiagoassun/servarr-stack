@@ -1,8 +1,18 @@
-# Ambiente local
+# Ambiente local / Portainer (nunca versionar segredos)
 .env
+.env.*
+!.env.example
 
 # Dados e configs gerados em runtime
-config/
+config/*
+!config/bootstrap/
+config/bootstrap/prowlarr-indexers.json
+!config/kometa/
+config/kometa/*
+!config/kometa/config.yml.example
+!config/homepage/
+config/homepage/*
+!config/homepage/services.yaml
 data/
 
 # OS / editor
@@ -12,3 +22,5 @@ Thumbs.db
 *~
 .vscode/
 .idea/
+__pycache__/
+*.pyc
