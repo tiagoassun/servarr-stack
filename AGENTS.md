@@ -5,8 +5,8 @@ Instruções para agentes neste repositório de código.
 ## Ordem de leitura (obrigatória)
 
 1. Meta-repo `__Confg-Projetos`: `PRIORIDADE.md` e `WIP.md`.
-2. Pasta do projeto: `d:/Docs Locais/Git/__Confg-Projetos/projetos/12-servarr-stack/` — ler `AGENTS.md`, `SPEC.md`, `MVP.md`, `ROADMAP.md` (e demais docs conforme a tarefa) **antes** de editar código aqui.
-3. Só então este repo (`servarr-stack`).
+2. Pasta do projeto: `d:/Docs Locais/Git/__Confg-Projetos/projetos/12-servarr-stack/` — ler `AGENTS.md`, `NEXT-AGENT.md`, `SPEC.md`, `MVP.md`, `ROADMAP.md` (e demais docs conforme a tarefa) **antes** de editar código aqui.
+3. Só então este repo (`servarr-stack`); há ponte em `NEXT-AGENT.md` na raiz (brief canônico no meta).
 
 O meta-repo é a fonte de verdade de intenção e escopo.
 
