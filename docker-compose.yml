@@ -1,7 +1,7 @@
-# Servarr stack - *Arr + companions + Plex + Gluetun
+# Servarr stack - *Arr + companions + Plex
 # Estrutura de pastas alinhada ao TRaSH Guides (hardlinks / atomic moves).
 # Docs: https://wiki.servarr.com/ | https://trash-guides.info/
-# VPN: qBittorrent e FlareSolverr usam network_mode do Gluetun (kill switch).
+# Sem VPN embutida: qBittorrent e FlareSolverr usam a rede servarr direto.
 
 name: servarr-stack
 
@@ -13,49 +13,13 @@ x-common-env: &common-env
 x-restart: &restart
   restart: unless-stopped
 
-services:
-  # --- VPN (porta de saida de qBittorrent + FlareSolverr) ---
-  gluetun:
-    image: qmcgaw/gluetun:latest
-    container_name: gluetun
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    sysctls:
-      - net.ipv4.conf.all.src_valid_mark=1
-    environment:
-      VPN_SERVICE_PROVIDER: ${VPN_SERVICE_PROVIDER:?set_VPN_SERVICE_PROVIDER_in_.env}
-      VPN_TYPE: ${VPN_TYPE:-wireguard}
-      OPENVPN_USER: ${OPENVPN_USER:-}
-      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD:-}
-      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:-}
-      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:-}
-      WIREGUARD_PUBLIC_KEY: ${WIREGUARD_PUBLIC_KEY:-}
-      WIREGUARD_ENDPOINT_IP: ${WIREGUARD_ENDPOINT_IP:-}
-      WIREGUARD_ENDPOINT_PORT: ${WIREGUARD_ENDPOINT_PORT:-}
-      SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
-      SERVER_CITIES: ${SERVER_CITIES:-}
-      SERVER_REGIONS: ${SERVER_REGIONS:-}
-      FIREWALL_OUTBOUND_SUBNETS: ${FIREWALL_OUTBOUND_SUBNETS:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}
-      TZ: ${TZ:-America/Sao_Paulo}
-    volumes:
-      - ${CONFIG_ROOT:-./config}/gluetun:/gluetun
-    ports:
-      - "${PORT_QBITTORRENT:-8080}:8080"
-      - "${PORT_QBITTORRENT_TORRENTING:-6881}:6881"
-      - "${PORT_QBITTORRENT_TORRENTING:-6881}:6881/udp"
-      - "${PORT_FLARESOLVERR:-8191}:8191"
-    networks:
-      - servarr
-    healthcheck:
-      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    <<: *restart
+x-health: &health
+  interval: 30s
+  timeout: 10s
+  retries: 5
+  start_period: 90s
 
+services:
   # --- Indexers ---
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
@@ -68,6 +32,9 @@ services:
       - "${PORT_PROWLARR:-9696}:9696"
     networks:
       - servarr
+    healthcheck:
+      <<: *health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9696/ping"]
     <<: *restart
 
   flaresolverr:
@@ -78,10 +45,17 @@ services:
       LOG_HTML: "false"
       CAPTCHA_SOLVER: none
       TZ: ${TZ:-America/Sao_Paulo}
-    network_mode: "service:gluetun"
-    depends_on:
-      gluetun:
-        condition: service_healthy
+    ports:
+      - "${PORT_FLARESOLVERR:-8191}:8191"
+    networks:
+      - servarr
+    healthcheck:
+      <<: *health
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8191/')\"",
+        ]
     <<: *restart
 
   # --- Media automation (*Arr) ---
@@ -98,8 +72,13 @@ services:
     networks:
       - servarr
     depends_on:
-      - prowlarr
-      - qbittorrent
+      prowlarr:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    healthcheck:
+      <<: *health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8989/ping"]
     <<: *restart
 
   radarr:
@@ -115,8 +94,13 @@ services:
     networks:
       - servarr
     depends_on:
-      - prowlarr
-      - qbittorrent
+      prowlarr:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    healthcheck:
+      <<: *health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7878/ping"]
     <<: *restart
 
   lidarr:
@@ -132,8 +116,13 @@ services:
     networks:
       - servarr
     depends_on:
-      - prowlarr
-      - qbittorrent
+      prowlarr:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    healthcheck:
+      <<: *health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8686/ping"]
     <<: *restart
 
   readarr:
@@ -149,8 +138,13 @@ services:
     networks:
       - servarr
     depends_on:
-      - prowlarr
-      - qbittorrent
+      prowlarr:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    healthcheck:
+      <<: *health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/ping"]
     <<: *restart
 
   whisparr:
@@ -167,8 +161,13 @@ services:
     networks:
       - servarr
     depends_on:
-      - prowlarr
-      - qbittorrent
+      prowlarr:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    healthcheck:
+      <<: *health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:6969/ping"]
     <<: *restart
 
   # --- Legendas ---
@@ -185,11 +184,16 @@ services:
     networks:
       - servarr
     depends_on:
-      - sonarr
-      - radarr
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+    healthcheck:
+      <<: *health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:6767/"]
     <<: *restart
 
-  # --- Download client (trafego so pela VPN) ---
+  # --- Download client ---
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -199,10 +203,15 @@ services:
     volumes:
       - ${CONFIG_ROOT:-./config}/qbittorrent:/config
       - ${DATA_ROOT:-./data}/torrents:/data/torrents
-    network_mode: "service:gluetun"
-    depends_on:
-      gluetun:
-        condition: service_healthy
+    ports:
+      - "${PORT_QBITTORRENT:-8080}:8080"
+      - "${PORT_QBITTORRENT_TORRENTING:-6881}:6881"
+      - "${PORT_QBITTORRENT_TORRENTING:-6881}:6881/udp"
+    networks:
+      - servarr
+    healthcheck:
+      <<: *health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/"]
     <<: *restart
 
   unpackerr:
