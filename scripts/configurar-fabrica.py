@@ -50,6 +50,52 @@ def config_root() -> Path:
     return p
 
 
+SECRET_MARKERS = ("apikey", "api_key", "password", "token", "secret", "cookie")
+
+
+def redact(value: Any) -> Any:
+    if isinstance(value, dict):
+        cleaned: dict[str, Any] = {}
+        for key, item in value.items():
+            if any(marker in str(key).lower() for marker in SECRET_MARKERS):
+                cleaned[str(key)] = "<omitido>"
+            else:
+                cleaned[str(key)] = redact(item)
+        return cleaned
+    if isinstance(value, list):
+        return [redact(item) for item in value[:4]]
+    if isinstance(value, str) and len(value) > 240:
+        return value[:240]
+    return value
+
+
+def read_api_key_from_yaml_auth(path: Path) -> str | None:
+    """Lê só o apikey do bloco auth: no topo. Outros apikey do YAML ficam de fora."""
+    if not path.is_file():
+        return None
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return None
+    in_auth = False
+    auth_indent = 0
+    for raw in lines:
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        if not in_auth:
+            if raw.strip() == "auth:":
+                in_auth = True
+                auth_indent = indent
+            continue
+        if indent <= auth_indent:
+            break
+        match = re.match(r"\s*apikey:\s*['\"]?([^'\"#\s]+)", raw)
+        if match and match.group(1) not in {"''", '""'}:
+            return match.group(1)
+    return None
+
+
 def read_api_key_from_xml(xml_path: Path) -> str | None:
     if not xml_path.is_file():
         return None
@@ -80,7 +126,10 @@ def resolve_api_key(app: dict[str, Any]) -> str | None:
         return os.environ[env_name].strip()
     rel = app.get("configXml")
     if rel:
-        return read_api_key_from_xml(config_root() / rel)
+        path = config_root() / rel
+        if path.suffix.lower() in {".yaml", ".yml"}:
+            return read_api_key_from_yaml_auth(path)
+        return read_api_key_from_xml(path)
     return None
 
 
@@ -143,49 +192,218 @@ def http_json(
         return 0, str(exc.reason if hasattr(exc, "reason") else exc)
 
 
-def wait_for(url: str, api_key: str | None, seconds: int, interval: int) -> bool:
+def discover_api_prefix(base: str) -> str:
+    """apiRoot de /initialize.json. O corpo também traz apiKey; não é impresso."""
+    status, body = http_json("GET", f"{base}/initialize.json", timeout=5)
+    if status == 200 and isinstance(body, dict):
+        root = str(body.get("apiRoot") or "")
+        if root.startswith("/api/"):
+            return root.rstrip("/") or "/api"
+    return ""
+
+
+def wait_for(url: str, api_key: str | None, seconds: int, interval: int) -> str | None:
+    """Devolve o prefixo que respondeu (/api/v3, /api/v1 ou /api)."""
+    discovered = discover_api_prefix(url)
+    prefixes: list[str] = []
+    if discovered:
+        prefixes.append(discovered)
+    for extra in ("/api/v3", "/api/v1"):
+        if extra not in prefixes:
+            prefixes.append(extra)
     deadline = time.time() + seconds
     while time.time() < deadline:
-        status, _ = http_json("GET", f"{url}/api/v1/system/status", api_key=api_key, timeout=5)
+        for prefix in prefixes:
+            status, _ = http_json(
+                "GET",
+                f"{url}{prefix}/system/status",
+                api_key=api_key,
+                timeout=5,
+            )
+            if status == 200:
+                return prefix
+        status, _ = http_json("GET", f"{url}/api/system/status", api_key=api_key, timeout=5)
         if status == 200:
-            return True
-        # Bazarr usa /api/system/status em algumas versoes
-        status2, _ = http_json("GET", f"{url}/api/system/status", api_key=api_key, timeout=5)
-        if status2 == 200:
-            return True
+            return "/api"
         time.sleep(interval)
-    return False
+    return None
 
 
-def ensure_root_folder(base: str, key: str, path: str) -> None:
-    status, folders = http_json("GET", f"{base}/api/v1/rootfolder", api_key=key)
+def first_profile_id(base: str, key: str, prefix: str, resources: tuple[str, ...]) -> int | None:
+    for resource in resources:
+        status, items = http_json("GET", f"{base}{prefix}/{resource}", api_key=key)
+        if status != 200 or not isinstance(items, list):
+            continue
+        standard = 0
+        fallback = 0
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            try:
+                profile_id = int(item.get("id") or 0)
+            except (TypeError, ValueError):
+                continue
+            if profile_id <= 0:
+                continue
+            if str(item.get("name") or "").lower() == "standard":
+                standard = profile_id
+                break
+            if not fallback:
+                fallback = profile_id
+        chosen = standard or fallback
+        if chosen:
+            return chosen
+    return None
+
+
+def ensure_root_folder(base: str, key: str, path: str, prefix: str) -> None:
+    status, folders = http_json("GET", f"{base}{prefix}/rootfolder", api_key=key)
     if status != 200:
-        print(f"  [aviso] rootfolder GET {status}: {folders}")
+        print(f"  [aviso] rootfolder GET {status}: {redact(folders)}")
         return
-    existing = {f.get("path") for f in (folders or [])}
-    if path in existing:
-        print(f"  root folder ok: {path}")
+    wanted = path.rstrip("/")
+    for folder in folders or []:
+        if str(folder.get("path") or "").rstrip("/") == wanted:
+            print(f"  root folder ok: {path}")
+            return
+    status, body = http_json(
+        "POST",
+        f"{base}{prefix}/rootfolder",
+        api_key=key,
+        payload={"path": path},
+    )
+    if status in (200, 201):
+        print(f"  root folder criado: {path}")
         return
-    status, body = http_json("POST", f"{base}/api/v1/rootfolder", api_key=key, payload={"path": path})
+    # Lidarr e Readarr exigem nome e perfis padrão; Sonarr/Radarr/Whisparr aceitam só o path.
+    payload: dict[str, Any] = {"path": path, "name": wanted.rsplit("/", 1)[-1] or "library"}
+    quality_id = first_profile_id(base, key, prefix, ("qualityprofile", "qualityProfile"))
+    metadata_id = first_profile_id(base, key, prefix, ("metadataprofile", "metadataProfile"))
+    if quality_id:
+        payload["defaultQualityProfileId"] = quality_id
+    if metadata_id:
+        payload["defaultMetadataProfileId"] = metadata_id
+    status, body = http_json("POST", f"{base}{prefix}/rootfolder", api_key=key, payload=payload)
     if status in (200, 201):
         print(f"  root folder criado: {path}")
     else:
-        print(f"  [aviso] rootfolder POST {status}: {body}")
+        print(f"  [aviso] rootfolder POST {status}: {redact(body)}")
 
 
-def ensure_download_client(base: str, key: str, defaults: dict[str, Any], category: str) -> None:
+CATEGORY_FIELDS = {"movieCategory", "tvCategory", "musicCategory", "bookCategory", "category"}
+
+
+def fill_qbit_fields(
+    fields: list[dict[str, Any]],
+    qbit: dict[str, Any],
+    password: str,
+    category: str,
+) -> list[dict[str, Any]]:
+    filled: list[dict[str, Any]] = []
+    for field in fields:
+        item = dict(field)
+        name = item.get("name")
+        if name == "host":
+            item["value"] = qbit["host"]
+        elif name == "port":
+            item["value"] = qbit["port"]
+        elif name == "useSsl":
+            item["value"] = qbit.get("useSsl", False)
+        elif name == "urlBase":
+            item["value"] = qbit.get("urlBase", "/")
+        elif name == "username":
+            item["value"] = qbit.get("username", "admin")
+        elif name == "password" and password:
+            item["value"] = password
+        elif name in CATEGORY_FIELDS:
+            item["value"] = category
+        filled.append(item)
+    return filled
+
+
+def save_download_client(
+    base: str,
+    key: str,
+    prefix: str,
+    payload: dict[str, Any],
+    category: str,
+    existing_id: int | None,
+) -> None:
+    if existing_id:
+        status, body = http_json(
+            "PUT",
+            f"{base}{prefix}/downloadclient/{existing_id}",
+            api_key=key,
+            payload=payload,
+            timeout=60,
+        )
+        action = "atualizado"
+    else:
+        status, body = http_json(
+            "POST",
+            f"{base}{prefix}/downloadclient",
+            api_key=key,
+            payload=payload,
+            timeout=60,
+        )
+        action = "criado"
+    if status in (200, 201, 202):
+        print(f"  download client qBittorrent {action} (categoria={category})")
+        # O POST de criação já testa a conexão. Repetir o teste sem o id novo
+        # faz o *Arr recusar o nome como duplicado.
+        if not existing_id:
+            return
+        test_status, test_body = http_json(
+            "POST",
+            f"{base}{prefix}/downloadclient/test",
+            api_key=key,
+            payload=payload,
+            timeout=60,
+        )
+        if test_status in (200, 201, 202) and not (isinstance(test_body, list) and test_body):
+            print("  download client: teste de conexão ok")
+        else:
+            print(f"  [aviso] teste do download client {test_status}: {redact(test_body)}")
+    else:
+        print(f"  [aviso] downloadclient {action} {status}: {redact(body)}")
+
+
+def ensure_download_client(
+    base: str,
+    key: str,
+    defaults: dict[str, Any],
+    category: str,
+    prefix: str,
+) -> None:
     qbit = defaults["qbittorrent"]
     password = os.environ.get(qbit.get("passwordEnv", "QBITTORRENT_PASSWORD"), "")
-    status, clients = http_json("GET", f"{base}/api/v1/downloadclient", api_key=key)
-    if status != 200:
-        print(f"  [aviso] downloadclient GET {status}: {clients}")
+    if not password:
+        print("  [aviso] QBITTORRENT_PASSWORD vazio; download client não foi alterado")
         return
+    status, clients = http_json("GET", f"{base}{prefix}/downloadclient", api_key=key)
+    if status != 200:
+        print(f"  [aviso] downloadclient GET {status}: {redact(clients)}")
+        return
+    existing = None
     for client in clients or []:
         if client.get("name") == "qBittorrent" or client.get("implementation") == "QBittorrent":
-            print("  download client qBittorrent já existe")
-            return
-    # Schema fields via downloadclient/schema
-    status, schemas = http_json("GET", f"{base}/api/v1/downloadclient/schema", api_key=key)
+            existing = client
+            break
+    if existing:
+        # A senha mascarada no GET não dá para comparar. Grava de novo a senha do ambiente.
+        payload = dict(existing)
+        payload["enable"] = True
+        payload["fields"] = fill_qbit_fields(existing.get("fields") or [], qbit, password, category)
+        save_download_client(
+            base,
+            key,
+            prefix,
+            payload,
+            category,
+            int(existing.get("id") or 0) or None,
+        )
+        return
+    status, schemas = http_json("GET", f"{base}{prefix}/downloadclient/schema", api_key=key)
     schema = None
     if status == 200:
         for item in schemas or []:
@@ -195,25 +413,6 @@ def ensure_download_client(base: str, key: str, defaults: dict[str, Any], catego
     if not schema:
         print("  [aviso] schema QBittorrent não encontrado")
         return
-    fields = []
-    for field in schema.get("fields", []):
-        name = field.get("name")
-        value = field.get("value")
-        if name == "host":
-            value = qbit["host"]
-        elif name == "port":
-            value = qbit["port"]
-        elif name == "useSsl":
-            value = qbit.get("useSsl", False)
-        elif name == "urlBase":
-            value = qbit.get("urlBase", "/")
-        elif name == "username":
-            value = qbit.get("username", "admin")
-        elif name == "password":
-            value = password
-        elif name == "movieCategory" or name == "tvCategory" or name == "musicCategory" or name == "bookCategory" or name == "category":
-            value = category
-        fields.append({**field, "value": value})
     payload = {
         "enable": True,
         "protocol": "torrent",
@@ -223,30 +422,30 @@ def ensure_download_client(base: str, key: str, defaults: dict[str, Any], catego
         "name": "qBittorrent",
         "implementation": "QBittorrent",
         "configContract": schema.get("configContract", "QBittorrentSettings"),
-        "fields": fields,
+        "fields": fill_qbit_fields(schema.get("fields") or [], qbit, password, category),
     }
-    status, body = http_json("POST", f"{base}/api/v1/downloadclient", api_key=key, payload=payload)
-    if status in (200, 201):
-        print(f"  download client qBittorrent criado (categoria={category})")
-    else:
-        print(f"  [aviso] downloadclient POST {status}: {body}")
+    save_download_client(base, key, prefix, payload, category, None)
 
 
-def patch_media_management(base: str, key: str, kind: str, defaults: dict[str, Any]) -> None:
+def patch_media_management(base: str, key: str, kind: str, defaults: dict[str, Any], prefix: str) -> None:
+    del kind
     mm = dict(defaults.get("mediaManagement") or {})
-    # Endpoint varia: /api/v1/config/mediamanagement
-    status, current = http_json("GET", f"{base}/api/v1/config/mediamanagement", api_key=key)
+    status, current = http_json("GET", f"{base}{prefix}/config/mediamanagement", api_key=key)
     if status != 200 or not isinstance(current, dict):
         print(f"  [aviso] mediamanagement GET {status}")
         return
     current.update({k: v for k, v in mm.items() if k in current or k == "copyUsingHardlinks"})
-    # hardlink
     current["copyUsingHardlinks"] = True
-    status, body = http_json("PUT", f"{base}/api/v1/config/mediamanagement", api_key=key, payload=current)
+    status, body = http_json(
+        "PUT",
+        f"{base}{prefix}/config/mediamanagement",
+        api_key=key,
+        payload=current,
+    )
     if status in (200, 202):
         print("  media management: hardlink ligado")
     else:
-        print(f"  [aviso] mediamanagement PUT {status}: {body}")
+        print(f"  [aviso] mediamanagement PUT {status}: {redact(body)}")
 
 
 def configure_arr(name: str, app: dict[str, Any], defaults: dict[str, Any]) -> bool:
@@ -256,13 +455,14 @@ def configure_arr(name: str, app: dict[str, Any], defaults: dict[str, Any]) -> b
     if not key:
         print("  [pulei] sem API key (.env ou config.xml)")
         return False
-    if not wait_for(base, key, defaults.get("waitSeconds", 180), defaults.get("pollIntervalSeconds", 5)):
+    prefix = wait_for(base, key, defaults.get("waitSeconds", 180), defaults.get("pollIntervalSeconds", 5))
+    if not prefix:
         print("  [pulei] API não respondeu a tempo")
         return False
-    ensure_root_folder(base, key, app["rootFolder"])
-    ensure_download_client(base, key, defaults, app["qbitCategory"])
-    patch_media_management(base, key, app.get("kind", ""), defaults)
-    # Garantia: não importa catálogo — não chamamos series/movie POST
+    print(f"  api: {prefix}")
+    ensure_root_folder(base, key, app["rootFolder"], prefix)
+    ensure_download_client(base, key, defaults, app["qbitCategory"], prefix)
+    patch_media_management(base, key, app.get("kind", ""), defaults, prefix)
     print("  catálogo: intocado (vazio na instalação nova)")
     return True
 
@@ -275,13 +475,18 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
     if not key:
         print("  [pulei] sem API key")
         return
-    if not wait_for(base, key, defaults.get("waitSeconds", 180), defaults.get("pollIntervalSeconds", 5)):
+    prefix = wait_for(base, key, defaults.get("waitSeconds", 180), defaults.get("pollIntervalSeconds", 5))
+    if not prefix:
         print("  [pulei] API não respondeu")
         return
+    print(f"  api: {prefix}")
+
+    def prowlarr_url(resource: str) -> str:
+        return f"{base}{prefix}/{resource}"
 
     # FlareSolverr indexer proxy
     fl_url = defaults["flaresolverr"]["url"]
-    status, proxies = http_json("GET", f"{base}/api/v1/indexerProxy", api_key=key)
+    status, proxies = http_json("GET", prowlarr_url("indexerProxy"), api_key=key)
     has_flare = False
     if status == 200:
         for p in proxies or []:
@@ -289,7 +494,7 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
                 has_flare = True
                 break
     if not has_flare:
-        status, schemas = http_json("GET", f"{base}/api/v1/indexerProxy/schema", api_key=key)
+        status, schemas = http_json("GET", prowlarr_url("indexerProxy/schema"), api_key=key)
         schema = None
         if status == 200:
             for item in schemas or []:
@@ -312,20 +517,20 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
                 "fields": fields,
                 "tags": [],
             }
-            status, body = http_json("POST", f"{base}/api/v1/indexerProxy", api_key=key, payload=payload)
+            status, body = http_json("POST", prowlarr_url("indexerProxy"), api_key=key, payload=payload)
             if status in (200, 201):
                 print(f"  FlareSolverr proxy: {fl_url}")
             else:
-                print(f"  [aviso] indexerProxy POST {status}: {body}")
+                print(f"  [aviso] indexerProxy POST {status}: {redact(body)}")
         else:
             print("  [aviso] schema FlareSolverr ausente")
     else:
         print("  FlareSolverr proxy já existe")
 
     # Applications sync
-    status, apps_existing = http_json("GET", f"{base}/api/v1/applications", api_key=key)
+    status, apps_existing = http_json("GET", prowlarr_url("applications"), api_key=key)
     existing_names = {a.get("name") for a in (apps_existing or [])} if status == 200 else set()
-    status, schemas = http_json("GET", f"{base}/api/v1/applications/schema", api_key=key)
+    status, schemas = http_json("GET", prowlarr_url("applications/schema"), api_key=key)
     schemas_by_impl = {}
     if status == 200:
         for item in schemas or []:
@@ -365,13 +570,38 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
             "fields": fields,
             "tags": [],
         }
-        status, body = http_json("POST", f"{base}/api/v1/applications", api_key=key, payload=payload)
+        status, body = http_json("POST", prowlarr_url("applications"), api_key=key, payload=payload)
         if status in (200, 201):
             print(f"  app sync criado: {spec['name']}")
         else:
-            print(f"  [aviso] applications POST {spec['name']} {status}: {body}")
+            print(f"  [aviso] applications POST {spec['name']} {status}: {redact(body)}")
 
     print("  indexers: não importados aqui (use backup/UI; ver config/fabrica/)")
+
+
+def http_form(
+    method: str,
+    url: str,
+    api_key: str,
+    fields: dict[str, str],
+    timeout: float = 30.0,
+) -> tuple[int, Any]:
+    data = urllib.parse.urlencode(fields).encode("utf-8")
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Api-Key": api_key,
+    }
+    req = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="ignore")
+            return resp.status, body or None
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        return exc.code, redact(body)
+    except urllib.error.URLError as exc:
+        return 0, str(exc.reason if hasattr(exc, "reason") else exc)
 
 
 def configure_bazarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
@@ -379,128 +609,176 @@ def configure_bazarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
     base = resolve_base_url(app)
     key = resolve_api_key(app)
     print(f"\n== bazarr ({base}) ==")
-    if not key:
-        # Bazarr as vezes expoe apikey so apos UI; tentar sem key em settings public
-        print("  [aviso] sem API key - configure Sonarr/Radarr na UI se a configuração de fábrica falhar")
-    # Tentativa generica de settings (versões variam)
     sonarr_key = keys.get("sonarr")
     radarr_key = keys.get("radarr")
+    if not key:
+        print("  [aviso] sem API key (auth.apikey no config.yaml)")
+        return
+    if not wait_for(base, key, defaults.get("waitSeconds", 180), defaults.get("pollIntervalSeconds", 5)):
+        print("  [pulei] API não respondeu a tempo")
+        return
     if not sonarr_key and not radarr_key:
         print("  [pulei] sem keys Sonarr/Radarr")
         return
-    # Endpoint comum em Bazarr 1.x
-    payload = {
-        "sonarr": {
-            "ip": "sonarr",
-            "port": 8989,
-            "base_url": "",
-            "ssl": False,
-            "apikey": sonarr_key or "",
-            "full_update": "Daily",
-        },
-        "radarr": {
-            "ip": "radarr",
-            "port": 7878,
-            "base_url": "",
-            "ssl": False,
-            "apikey": radarr_key or "",
-            "full_update": "Daily",
-        },
-    }
-    if key:
-        status, body = http_json(
-            "POST",
-            f"{base}/api/system/settings",
-            api_key=key,
-            payload=payload,
+    # Bazarr 1.x grava settings via form, com chaves settings-<secao>-<campo>.
+    # Portas são as internas do Compose, não as publicadas no host.
+    fields: dict[str, str] = {}
+    if sonarr_key:
+        fields.update(
+            {
+                "settings-general-use_sonarr": "true",
+                "settings-sonarr-ip": "sonarr",
+                "settings-sonarr-port": "8989",
+                "settings-sonarr-base_url": "/",
+                "settings-sonarr-ssl": "false",
+                "settings-sonarr-apikey": sonarr_key,
+            }
         )
-        # Alternativa
-        if status not in (200, 204):
-            status, body = http_json(
-                "PUT",
-                f"{base}/api/system/settings",
-                api_key=key,
-                payload=payload,
-            )
-        if status in (200, 204):
-            print("  Sonarr/Radarr ligados (sem itens Wanted de catálogo)")
-        else:
-            print(f"  [aviso] settings {status}: {body} - finalize na UI")
+    if radarr_key:
+        fields.update(
+            {
+                "settings-general-use_radarr": "true",
+                "settings-radarr-ip": "radarr",
+                "settings-radarr-port": "7878",
+                "settings-radarr-base_url": "/",
+                "settings-radarr-ssl": "false",
+                "settings-radarr-apikey": radarr_key,
+            }
+        )
+    status, body = http_form("POST", f"{base}/api/system/settings", key, fields)
+    if status in (200, 204):
+        print("  Sonarr/Radarr ligados (sem itens Wanted de catálogo)")
     else:
-        print("  finalize ligacao Sonarr/Radarr na UI do Bazarr")
+        print(f"  [aviso] settings {status}: {redact(body)} - finalize na UI")
 
 
-def try_qbittorrent_categories(defaults: dict[str, Any]) -> None:
+def qbit_base_url(defaults: dict[str, Any]) -> str:
+    qbit = defaults["qbittorrent"]
+    host = os.environ.get("FABRICA_HOST", "127.0.0.1")
+    port = os.environ.get("PORT_QBITTORRENT", str(qbit["port"]))
+    return f"http://{host}:{port}"
+
+
+def qbit_session_cookie(headers: Any) -> str | None:
+    getter = getattr(headers, "get_all", None)
+    values = getter("Set-Cookie") if getter else None
+    if not values:
+        single = headers.get("Set-Cookie") if hasattr(headers, "get") else None
+        values = [single] if single else []
+    for item in values:
+        pair = str(item).split(";", 1)[0].strip()
+        name = pair.split("=", 1)[0]
+        if "SID" in name.upper() and "=" in pair:
+            return pair
+    return None
+
+
+def qbit_open(
+    base: str,
+    path: str,
+    cookie: str | None,
+    data: bytes | None = None,
+    content_type: str | None = None,
+) -> tuple[int, str, str | None]:
+    headers = {"Referer": f"{base}/"}
+    if cookie:
+        headers["Cookie"] = cookie
+    if content_type:
+        headers["Content-Type"] = content_type
+    req = urllib.request.Request(f"{base}{path}", data=data, headers=headers, method="POST" if data is not None else "GET")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            fresh = qbit_session_cookie(resp.headers) or cookie
+            return resp.status, resp.read().decode("utf-8", errors="ignore"), fresh
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode("utf-8", errors="ignore"), cookie
+    except urllib.error.URLError as exc:
+        return 0, str(exc.reason if hasattr(exc, "reason") else exc), cookie
+
+
+def prepare_qbittorrent(defaults: dict[str, Any]) -> None:
     print("\n== qbittorrent ==")
     qbit = defaults["qbittorrent"]
     password = os.environ.get(qbit.get("passwordEnv", "QBITTORRENT_PASSWORD"), "")
-    host_mode = os.environ.get("FABRICA_MODE", "docker").lower()
-    if host_mode == "host":
-        host = os.environ.get("FABRICA_HOST", "127.0.0.1")
-        port = os.environ.get("PORT_QBITTORRENT", str(qbit["port"]))
-        base = f"http://{host}:{port}"
-    else:
-        # No host use FABRICA_MODE=host (localhost + porta publicada)
-        host = os.environ.get("FABRICA_HOST", "127.0.0.1")
-        port = os.environ.get("PORT_QBITTORRENT", str(qbit["port"]))
-        base = f"http://{host}:{port}"
-        print(f"  usando WebUI em {base} (defina QBITTORRENT_PASSWORD)")
-
+    base = qbit_base_url(defaults)
     if not password:
         print("  [pulei] QBITTORRENT_PASSWORD vazio - crie categorias na UI ou rode de novo")
         return
 
-    # Login
     login_data = urllib.parse.urlencode(
         {"username": qbit.get("username", "admin"), "password": password}
     ).encode()
-    req = urllib.request.Request(
-        f"{base}/api/v2/auth/login",
-        data=login_data,
-        method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    status, body, cookie = qbit_open(
+        base,
+        "/api/v2/auth/login",
+        None,
+        login_data,
+        "application/x-www-form-urlencoded",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            cookie = resp.headers.get("Set-Cookie", "")
-            body = resp.read().decode()
-            if body.strip().lower() != "ok." and "SID=" not in cookie:
-                print(f"  [aviso] login qBit: {body!r}")
-                return
-    except urllib.error.URLError as exc:
-        print(f"  [aviso] qBit inacessivel: {exc}")
+    if body.strip().lower() == "fails." or not cookie or status not in (200, 204):
+        print(f"  [aviso] login qBit HTTP {status}")
         return
 
-    sid = None
-    for part in cookie.split(";"):
-        part = part.strip()
-        if part.startswith("SID="):
-            sid = part
-            break
-    if not sid:
-        print("  [aviso] sem cookie SID")
-        return
+    # qBittorrent 5 recusa Host qbittorrent:8080 enquanto a validação de Host/CSRF está ligada.
+    prefs = {
+        "web_ui_csrf_protection_enabled": False,
+        "web_ui_host_header_validation_enabled": False,
+    }
+    pref_data = urllib.parse.urlencode({"json": json.dumps(prefs)}).encode()
+    pref_status, _, cookie = qbit_open(
+        base,
+        "/api/v2/app/setPreferences",
+        cookie,
+        pref_data,
+        "application/x-www-form-urlencoded",
+    )
+    if pref_status == 200:
+        print("  WebUI: validação de Host e CSRF desligadas para a rede Docker")
+    else:
+        print(f"  [aviso] setPreferences HTTP {pref_status}")
+
+    list_status, list_body, cookie = qbit_open(base, "/api/v2/torrents/categories", cookie)
+    existing: dict[str, Any] = {}
+    if list_status == 200:
+        try:
+            parsed = json.loads(list_body or "{}")
+            if isinstance(parsed, dict):
+                existing = parsed
+        except json.JSONDecodeError:
+            existing = {}
 
     for cat, savepath in qbit.get("categories", {}).items():
+        current = existing.get(cat) if isinstance(existing.get(cat), dict) else None
         data = urllib.parse.urlencode({"category": cat, "savePath": savepath}).encode()
-        req = urllib.request.Request(
-            f"{base}/api/v2/torrents/createCategory",
-            data=data,
-            method="POST",
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Cookie": sid,
-            },
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                print(f"  categoria {cat} -> {savepath} (HTTP {resp.status})")
-        except urllib.error.HTTPError as exc:
-            # 409 = ja existe
-            if exc.code in (409,):
+        if current is None:
+            cat_status, _, cookie = qbit_open(
+                base,
+                "/api/v2/torrents/createCategory",
+                cookie,
+                data,
+                "application/x-www-form-urlencoded",
+            )
+            if cat_status == 200:
+                print(f"  categoria {cat} -> {savepath}")
+            elif cat_status == 409:
                 print(f"  categoria {cat} já existe")
             else:
-                print(f"  [aviso] categoria {cat}: HTTP {exc.code}")
+                print(f"  [aviso] categoria {cat}: HTTP {cat_status}")
+            continue
+        if str(current.get("savePath") or "") == savepath:
+            print(f"  categoria {cat} já existe")
+            continue
+        edit_status, _, cookie = qbit_open(
+            base,
+            "/api/v2/torrents/editCategory",
+            cookie,
+            data,
+            "application/x-www-form-urlencoded",
+        )
+        if edit_status == 200:
+            print(f"  categoria {cat} -> {savepath}")
+        else:
+            print(f"  [aviso] categoria {cat} edit HTTP {edit_status}")
 
 
 def print_checklist(defaults: dict[str, Any]) -> None:
@@ -526,12 +804,13 @@ def main() -> int:
         if k:
             keys[name] = k
 
+    prepare_qbittorrent(defaults)
+
     for name in ("sonarr", "radarr", "lidarr", "readarr", "whisparr"):
         configure_arr(name, defaults["apps"][name], defaults)
 
     configure_prowlarr(defaults, keys)
     configure_bazarr(defaults, keys)
-    try_qbittorrent_categories(defaults)
     print_checklist(defaults)
     print("\nPronto. Catálogo continua vazio até você adicionar títulos.")
     return 0
