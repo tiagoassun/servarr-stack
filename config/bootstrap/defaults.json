@@ -1,5 +1,5 @@
 {
-  "description": "Defaults versionados: wiring interno sem catalogo (filmes/series/musicas/livros). Biblioteca começa vazia.",
+  "description": "Defaults versionados: wiring interno sem catálogo (filmes/séries/músicas/livros). Biblioteca começa vazia.",
   "waitSeconds": 180,
   "pollIntervalSeconds": 5,
   "qbittorrent": {
@@ -160,7 +160,7 @@
     },
     {
       "app": "qbittorrent",
-      "acao": "Confirmar senha admin (log ou QBITTORRENT_PASSWORD). Categorias sao criadas pelo bootstrap quando a API autenticar."
+      "acao": "Confirmar senha admin (log ou QBITTORRENT_PASSWORD). Categorias são criadas pelo bootstrap quando a API autenticar."
     },
     {
       "app": "profilarr",
@@ -168,11 +168,11 @@
     },
     {
       "app": "prowlarr-indexers",
-      "acao": "Importar backup de indexers (config/bootstrap/prowlarr-indexers.json local, nao versionar secrets) ou cadastrar na UI. O bootstrap so faz wiring."
+      "acao": "Importar backup de indexers (config/bootstrap/prowlarr-indexers.json local, não versionar secrets) ou cadastrar na UI. O bootstrap só faz wiring."
     },
     {
       "app": "plex",
-      "acao": "PLEX_CLAIM no .env na primeira subida. Criar libraries Filmes/Series vazias em /data/media/movies e /data/media/tv."
+      "acao": "PLEX_CLAIM no .env na primeira subida. Criar libraries Filmes/Séries vazias em /data/media/movies e /data/media/tv."
     },
     {
       "app": "seerr",
@@ -188,7 +188,7 @@
     },
     {
       "app": "kometa",
-      "acao": "Editar config/kometa/config.yml (token Plex). Libraries vazias sao ok."
+      "acao": "Editar config/kometa/config.yml (token Plex). Libraries vazias são ok."
     },
     {
       "app": "tdarr",
@@ -196,15 +196,15 @@
     },
     {
       "app": "maintainerr",
-      "acao": "Ligar Plex/Sonarr/Radarr/Seerr/Tautulli; regras depois que existir midia."
+      "acao": "Ligar Plex/Sonarr/Radarr/Seerr/Tautulli; regras depois que existir mídia."
     },
     {
       "app": "unpackerr",
-      "acao": "API keys no .env e recreate do container (ja coberto pelo compose)."
+      "acao": "API keys no .env e recreate do container (já coberto pelo compose)."
     },
     {
       "app": "homepage",
-      "acao": "Ajustar HOMEPAGE_ALLOWED_HOSTS e URLs em services.yaml se o host nao for localhost."
+      "acao": "Ajustar HOMEPAGE_ALLOWED_HOSTS e URLs em services.yaml se o host não for localhost."
     },
     {
       "app": "flaresolverr",

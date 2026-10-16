@@ -3,10 +3,12 @@ name: ci
 on:
   pull_request:
     branches:
+      - dev
       - hml
       - main
   push:
     branches:
+      - dev
       - hml
       - main
 
@@ -20,6 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate shell and Python
+        run: |
+          bash -n scripts/init-dirs.sh
+          bash -n scripts/bootstrap.sh
+          python3 -m py_compile scripts/bootstrap.py scripts/check-factory.py
+          python3 scripts/check-factory.py
       - name: Validate compose file
         env:
           VPN_SERVICE_PROVIDER: custom
@@ -30,4 +38,7 @@ jobs:
           TZ: America/Sao_Paulo
           CONFIG_ROOT: /tmp/servarr-config
           DATA_ROOT: /tmp/servarr-data
-        run: docker compose -f docker-compose.yml config --quiet
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml config --format json > /tmp/compose.json
+          python3 scripts/check-factory.py /tmp/compose.json

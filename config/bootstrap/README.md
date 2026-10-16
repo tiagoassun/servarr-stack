@@ -1,8 +1,8 @@
 # Bootstrap (config de fábrica)
 
-Objetivo: cada instalação nova do `servarr-stack` sobe com **wiring interno** pronto (paths, qBit, Prowlarr <-> *Arr, FlareSolverr, hardlink) e **biblioteca vazia** (nenhum filme/serie/música/livro monitorado; nada na fila do Bazarr).
+Objetivo: cada instalação nova do `servarr-stack` sobe com **wiring interno** pronto (paths, qBit, Prowlarr <-> *Arr, FlareSolverr, hardlink) e **biblioteca vazia** (nenhum filme/série/música/livro monitorado; nada na fila do Bazarr).
 
-## O que e versionado aqui
+## O que é versionado aqui
 
 | Arquivo | Papel |
 |---------|--------|

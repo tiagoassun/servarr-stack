@@ -4,7 +4,7 @@ Docker Compose para o ecossistema [Servarr](https://wiki.servarr.com/) (*Arr) e 
 
 Objetivo de instalação: **configuração de fábrica** (wiring + indexers quando importados) com **biblioteca vazia** - nenhum filme, série, música ou livro monitorado; nada na fila do Bazarr. Mídia e catálogo entram depois, no uso.
 
-Destino previsto: notebook servidor com **Portainer** (ver [docs/PORTAINER.md](docs/PORTAINER.md)). Ainda não é obrigatório subir lá.
+Destino previsto: **Servidor Pessoal** / **Notebook Servidor** com **Portainer** (ver [docs/PORTAINER.md](docs/PORTAINER.md)). Ainda não é obrigatório subir lá.
 
 ## Serviços
 
@@ -89,7 +89,7 @@ Detalhes: [config/bootstrap/README.md](config/bootstrap/README.md).
 
 ## Portainer
 
-Quando for a hora no notebook servidor: [docs/PORTAINER.md](docs/PORTAINER.md).
+Quando for a hora no Servidor Pessoal: [docs/PORTAINER.md](docs/PORTAINER.md).
 
 Resumo: Stack a partir do Git (`docker-compose.yml` + env vars do `.env.example`), paths absolutos em `CONFIG_ROOT` / `DATA_ROOT`, depois `bootstrap.sh` no host.
 
@@ -182,7 +182,7 @@ docker compose down
 ## Notas
 
 - `DATA_ROOT` em um único filesystem.
-- VPN cai = Gluetun corta saida do qBittorrent/FlareSolverr.
+- VPN cai = Gluetun corta a saída do qBittorrent/FlareSolverr.
 - Readarr: tag `develop`. Whisparr: hotio.
 - Instalação nova = catálogo vazio; só configuração e (opcionalmente) indexers.
 - Lista de tools oficiais: https://wiki.servarr.com/useful-tools

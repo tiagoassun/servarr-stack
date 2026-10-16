@@ -2,8 +2,8 @@
 """Bootstrap de wiring do servarr-stack (biblioteca vazia).
 
 Configura *Arr + Prowlarr + Bazarr + categorias qBit via API.
-Nao adiciona filmes/series/musicas/livros monitorados.
-Nao exige dependencias alem da stdlib.
+Não adiciona filmes/séries/músicas/livros monitorados.
+Não exige dependências além da stdlib.
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ def resolve_base_url(app: dict[str, Any]) -> str:
     env_name = app.get("baseUrlEnv")
     if env_name and os.environ.get(env_name):
         return os.environ[env_name].rstrip("/")
-    # Bootstrap no host (Portainer notebook): preferir localhost + porta publicada
+    # Bootstrap no host (Portainer no Servidor Pessoal): preferir localhost + porta publicada
     host_mode = os.environ.get("BOOTSTRAP_MODE", "docker").lower()
     if host_mode == "host":
         mapping = {
@@ -182,7 +182,7 @@ def ensure_download_client(base: str, key: str, defaults: dict[str, Any], catego
         return
     for client in clients or []:
         if client.get("name") == "qBittorrent" or client.get("implementation") == "QBittorrent":
-            print("  download client qBittorrent ja existe")
+            print("  download client qBittorrent já existe")
             return
     # Schema fields via downloadclient/schema
     status, schemas = http_json("GET", f"{base}/api/v1/downloadclient/schema", api_key=key)
@@ -193,7 +193,7 @@ def ensure_download_client(base: str, key: str, defaults: dict[str, Any], catego
                 schema = item
                 break
     if not schema:
-        print("  [aviso] schema QBittorrent nao encontrado")
+        print("  [aviso] schema QBittorrent não encontrado")
         return
     fields = []
     for field in schema.get("fields", []):
@@ -257,13 +257,13 @@ def configure_arr(name: str, app: dict[str, Any], defaults: dict[str, Any]) -> b
         print("  [pulei] sem API key (.env ou config.xml)")
         return False
     if not wait_for(base, key, defaults.get("waitSeconds", 180), defaults.get("pollIntervalSeconds", 5)):
-        print("  [pulei] API nao respondeu a tempo")
+        print("  [pulei] API não respondeu a tempo")
         return False
     ensure_root_folder(base, key, app["rootFolder"])
     ensure_download_client(base, key, defaults, app["qbitCategory"])
     patch_media_management(base, key, app.get("kind", ""), defaults)
-    # Garantia: nao importa catalogo - nao chamamos series/movie POST
-    print("  catalogo: intocado (vazio na instalacao nova)")
+    # Garantia: não importa catálogo — não chamamos series/movie POST
+    print("  catálogo: intocado (vazio na instalação nova)")
     return True
 
 
@@ -276,7 +276,7 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
         print("  [pulei] sem API key")
         return
     if not wait_for(base, key, defaults.get("waitSeconds", 180), defaults.get("pollIntervalSeconds", 5)):
-        print("  [pulei] API nao respondeu")
+        print("  [pulei] API não respondeu")
         return
 
     # FlareSolverr indexer proxy
@@ -320,7 +320,7 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
         else:
             print("  [aviso] schema FlareSolverr ausente")
     else:
-        print("  FlareSolverr proxy ja existe")
+        print("  FlareSolverr proxy já existe")
 
     # Applications sync
     status, apps_existing = http_json("GET", f"{base}/api/v1/applications", api_key=key)
@@ -333,7 +333,7 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
 
     for spec in defaults.get("prowlarrApplications", []):
         if spec["name"] in existing_names:
-            print(f"  app sync ja existe: {spec['name']}")
+            print(f"  app sync já existe: {spec['name']}")
             continue
         app_key_name = spec["appKey"]
         app_api = keys.get(app_key_name) or resolve_api_key(defaults["apps"].get(app_key_name, {}))
@@ -371,7 +371,7 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
         else:
             print(f"  [aviso] applications POST {spec['name']} {status}: {body}")
 
-    print("  indexers: nao importados aqui (use backup/UI; ver config/bootstrap/)")
+    print("  indexers: não importados aqui (use backup/UI; ver config/bootstrap/)")
 
 
 def configure_bazarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
@@ -423,7 +423,7 @@ def configure_bazarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
                 payload=payload,
             )
         if status in (200, 204):
-            print("  Sonarr/Radarr ligados (sem itens Wanted de catalogo)")
+            print("  Sonarr/Radarr ligados (sem itens Wanted de catálogo)")
         else:
             print(f"  [aviso] settings {status}: {body} - finalize na UI")
     else:
@@ -499,7 +499,7 @@ def try_qbittorrent_categories(defaults: dict[str, Any]) -> None:
         except urllib.error.HTTPError as exc:
             # 409 = ja existe
             if exc.code in (409,):
-                print(f"  categoria {cat} ja existe")
+                print(f"  categoria {cat} já existe")
             else:
                 print(f"  [aviso] categoria {cat}: HTTP {exc.code}")
 
@@ -513,7 +513,7 @@ def print_checklist(defaults: dict[str, Any]) -> None:
 def main() -> int:
     load_dotenv(ROOT / ".env")
     if not DEFAULTS_PATH.is_file():
-        print(f"defaults nao encontrado: {DEFAULTS_PATH}", file=sys.stderr)
+        print(f"defaults não encontrado: {DEFAULTS_PATH}", file=sys.stderr)
         return 1
     defaults = load_defaults()
     print("servarr-stack bootstrap")
@@ -534,7 +534,7 @@ def main() -> int:
     configure_bazarr(defaults, keys)
     try_qbittorrent_categories(defaults)
     print_checklist(defaults)
-    print("\nPronto. Catalogo continua vazio ate voce adicionar titulos.")
+    print("\nPronto. Catálogo continua vazio até você adicionar títulos.")
     return 0
 
 
