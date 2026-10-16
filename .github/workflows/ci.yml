@@ -21,7 +21,7 @@ jobs:
     name: compose
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate shell and Python
         run: |
           bash -n scripts/init-dirs.sh
