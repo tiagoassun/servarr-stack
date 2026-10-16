@@ -1,14 +1,12 @@
 # Portainer no Servidor Pessoal
 
-O destino do stack é o **Servidor Pessoal** (o mesmo host também chamado **Notebook Servidor**), via Portainer. Este repositório deixa o Compose e o bootstrap prontos no Git. Subir a stack no Portainer fica para um pedido explícito.
+O destino do stack é o **Servidor Pessoal** (o mesmo host também chamado **Notebook Servidor**), via Portainer. Este repositório deixa o Compose e o script de configuração de fábrica prontos no Git. Subir a stack no Portainer fica para um pedido explícito.
 
 ## Pré-requisitos no host
 
 - Docker Engine e Docker Compose v2
-- `/dev/net/tun` disponível para o Gluetun (kill switch da VPN)
-- `python3` no host, para `scripts/bootstrap.sh` (só a biblioteca padrão)
+- `python3` no host, para `scripts/configurar-fabrica.sh` (só a biblioteca padrão)
 - Um único filesystem para `DATA_ROOT` (hardlinks entre torrent e biblioteca)
-- Conta VPN aceita pelo Gluetun. Chaves, senhas e claim ficam nas variáveis do Portainer, nunca no Git
 
 Confira o usuário dono dos volumes:
 
@@ -29,8 +27,6 @@ Copie os nomes de `.env.example` para **Stacks -> Environment variables**. Não 
 | `TZ` | Fuso, por exemplo `America/Sao_Paulo` |
 | `CONFIG_ROOT` | Caminho absoluto das configs |
 | `DATA_ROOT` | Caminho absoluto de torrents e biblioteca, no mesmo disco |
-| `VPN_SERVICE_PROVIDER` / `VPN_TYPE` | Provedor e tipo (WireGuard ou OpenVPN) |
-| `WIREGUARD_PRIVATE_KEY` / `WIREGUARD_ADDRESSES` | Dados da VPN, só no ambiente |
 | `PLEX_CLAIM` | Token de [plex.tv/claim](https://plex.tv/claim); expira em minutos e não entra no Git |
 | `QBITTORRENT_PASSWORD` | Senha do WebUI. Na primeira subida a imagem linuxserver imprime a senha no log |
 | `HOMEPAGE_ALLOWED_HOSTS` | Hosts reais do dashboard, além de localhost |
@@ -75,19 +71,19 @@ bash scripts/init-dirs.sh
 
 ## Depois que os containers subirem
 
-Espere o Gluetun ficar `healthy`. Sem VPN válida o qBittorrent e o FlareSolverr não sobem, porque usam `network_mode: service:gluetun`.
+Espere Prowlarr, qBittorrent e FlareSolverr responderem.
 
 ```bash
-docker compose ps gluetun
+docker compose ps
 export QBITTORRENT_PASSWORD='...'   # valor lido no log, não versionado
-bash scripts/bootstrap.sh
+bash scripts/configurar-fabrica.sh
 ```
 
-O bootstrap cria root folders vazios, aponta o download client para `gluetun:8080`, liga hardlink e registra FlareSolverr mais o sync do Prowlarr. Não adiciona filme, série, música ou livro, e não enche a fila do Bazarr. O final do script lista o que ainda é manual (Profilarr, libraries vazias do Plex, Seerr, Wizarr e o restante).
+O script cria root folders vazios, aponta o download client para `qbittorrent:8080`, liga hardlink e registra FlareSolverr mais o sync do Prowlarr. Não adiciona filme, série, música ou livro, e não enche a fila do Bazarr. O final do script lista o que ainda é manual (Profilarr, libraries vazias do Plex, Seerr, Wizarr e o restante).
 
 ## O que não fazer agora
 
 - Não apontar webhook GitOps para redeploy automático sem pedido
 - Não desinstalar o Servarr do Win11
 - Não misturar o `DATA_ROOT` da instalação do Win11 com o teste do Portainer sem planejar o corte
-- Não commitar `.env`, claim do Plex, chave de VPN, senha do qBittorrent ou cookie de indexer
+- Não commitar `.env`, claim do Plex, senha do qBittorrent ou cookie de indexer

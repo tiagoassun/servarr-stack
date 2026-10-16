@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Confere o contrato de fábrica do servarr-stack sem subir a VPN.
+"""Confere o contrato de fábrica do servarr-stack sem subir containers.
 
 Uso:
   python3 scripts/check-factory.py
@@ -33,8 +33,9 @@ CATALOG_ENDPOINTS = (
 )
 
 HEALTHY_SERVICES = (
-    "gluetun",
     "prowlarr",
+    "qbittorrent",
+    "flaresolverr",
     "sonarr",
     "radarr",
     "lidarr",
@@ -44,7 +45,7 @@ HEALTHY_SERVICES = (
     "seerr",
 )
 
-VPN_SERVICES = ("qbittorrent", "flaresolverr")
+DIRECT_NETWORK_SERVICES = ("qbittorrent", "flaresolverr")
 
 
 def fail(message: str) -> None:
@@ -53,28 +54,30 @@ def fail(message: str) -> None:
 
 
 def check_defaults() -> None:
-    defaults = json.loads((ROOT / "config/bootstrap/defaults.json").read_text(encoding="utf-8"))
+    defaults = json.loads((ROOT / "config/fabrica/defaults.json").read_text(encoding="utf-8"))
     qbit = defaults["qbittorrent"]
-    if qbit.get("host") != "gluetun" or qbit.get("port") != 8080:
-        fail("qBittorrent precisa apontar para gluetun:8080")
+    if qbit.get("host") != "qbittorrent" or qbit.get("port") != 8080:
+        fail("qBittorrent precisa apontar para qbittorrent:8080")
     if defaults["mediaManagement"].get("copyUsingHardlinks") is not True:
         fail("hardlink precisa estar ligado em mediaManagement")
-    if defaults["flaresolverr"].get("url") != "http://gluetun:8191/":
-        fail("FlareSolverr precisa usar http://gluetun:8191/")
+    if defaults["flaresolverr"].get("url") != "http://flaresolverr:8191/":
+        fail("FlareSolverr precisa usar http://flaresolverr:8191/")
     for name, path in ROOT_FOLDERS.items():
         app = defaults["apps"][name]
         if app.get("rootFolder") != path:
             fail(f"root folder de {name} deveria ser {path}")
         if not app.get("qbitCategory"):
             fail(f"{name} sem categoria do qBittorrent")
-    source = (ROOT / "scripts/bootstrap.py").read_text(encoding="utf-8")
+    source = (ROOT / "scripts/configurar-fabrica.py").read_text(encoding="utf-8")
     for endpoint in CATALOG_ENDPOINTS:
         if endpoint in source:
-            fail(f"bootstrap.py não pode chamar {endpoint}")
+            fail(f"configurar-fabrica.py não pode chamar {endpoint}")
+    if "gluetun" in source.lower():
+        fail("configurar-fabrica.py não deve referenciar Gluetun")
 
 
 def check_indexers() -> None:
-    path = ROOT / "config/bootstrap/prowlarr-indexers.example.json"
+    path = ROOT / "config/fabrica/prowlarr-indexers.example.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
     indexers = payload.get("indexers")
     if indexers != []:
@@ -83,16 +86,16 @@ def check_indexers() -> None:
 
 def check_compose(config: dict) -> None:
     services = config.get("services") or {}
-    for name in VPN_SERVICES:
+    if "gluetun" in services:
+        fail("Gluetun foi removido do compose; não deve existir serviço gluetun")
+    for name in DIRECT_NETWORK_SERVICES:
         service = services.get(name) or {}
         mode = str(service.get("network_mode") or "")
-        if "service:gluetun" not in mode:
-            fail(f"{name} precisa de network_mode service:gluetun")
-        depends = service.get("depends_on") or {}
-        gluetun = depends.get("gluetun") if isinstance(depends, dict) else None
-        condition = gluetun.get("condition") if isinstance(gluetun, dict) else None
-        if condition != "service_healthy":
-            fail(f"{name} precisa esperar o Gluetun healthy")
+        if "gluetun" in mode:
+            fail(f"{name} não pode usar network_mode do Gluetun")
+        networks = service.get("networks")
+        if not networks:
+            fail(f"{name} precisa estar na rede servarr (sem network_mode de outro serviço)")
     for name in HEALTHY_SERVICES:
         service = services.get(name) or {}
         if not service.get("healthcheck"):

@@ -36,9 +36,10 @@ feature/<descricao-kebab>  →  hml  →  main
 
 ## Notas do produto
 
-- Backlog (prioridade 5): Docker Compose *Arr + companions (Bazarr, qBittorrent, Plex, Gluetun, Seerr, etc.).
-- MVP = stack documentada estável no Servidor Pessoal; config de fábrica com biblioteca vazia.
-- Não commitar `.env` real, claim tokens, senhas VPN ou credenciais de indexers.
+- Backlog (prioridade 5): Docker Compose *Arr + companions (Bazarr, qBittorrent, Plex, Seerr, etc.).
+- MVP = stack documentada estável no Servidor Pessoal; config de fábrica com biblioteca vazia (`scripts/configurar-fabrica.sh`).
+- Sem Gluetun neste ciclo: qBittorrent e FlareSolverr na rede `servarr`.
+- Não commitar `.env` real, claim tokens ou credenciais de indexers.
 
 ## Ambiente DEV (Agents Window / Cloud Agent)
 
