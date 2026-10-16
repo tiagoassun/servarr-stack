@@ -44,4 +44,5 @@ feature/<descricao-kebab>  →  hml  →  main
 
 - Quando houver `dev`: `feature/*` -> PR -> `dev` (Agents podem abrir/aprovar/mergear). `hml`/`main` só humano.
 - Na `feature/*` e no Cloud da missão: editar, testar, commit, push e PR/merge para `dev` **sem** pedir lote a cada passo (brief/pedido da missão já autoriza). Ver `__Confg-Projetos/AGENTS.md`.
+- Branch **designada**: trabalhar **somente** na `feature/...` nomeada na missão / `NEXT-AGENT.md`. Se não existir, criar **apenas essa** a partir de `origin/dev`. **Proibido** criar outras branches. Sem nome no brief: pedir ao humano.
 - **Proibido** para Agents: merge/push em `hml` ou `main`.
