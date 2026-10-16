@@ -75,7 +75,7 @@ if command -v chown >/dev/null 2>&1; then
     2>/dev/null || true
 fi
 
-# Kometa / Homepage: copia stubs versionados se ainda nao existirem
+# Kometa / Homepage: copia stubs versionados se ainda não existirem
 if [[ ! -f "${CONFIG_ROOT}/kometa/config.yml" && -f config/kometa/config.yml.example ]]; then
   cp config/kometa/config.yml.example "${CONFIG_ROOT}/kometa/config.yml"
   echo "Criado ${CONFIG_ROOT}/kometa/config.yml a partir do exemplo (edite o token do Plex)."
@@ -86,10 +86,10 @@ if [[ ! -f "${CONFIG_ROOT}/homepage/services.yaml" && -f config/homepage/service
   echo "Criado ${CONFIG_ROOT}/homepage/services.yaml."
 fi
 
-# Bootstrap: defaults versionados ja vivem em config/bootstrap/ (repo)
+# Bootstrap: defaults versionados já vivem em config/bootstrap/ (repo)
 if [[ -d config/bootstrap ]]; then
   mkdir -p "${CONFIG_ROOT}/bootstrap"
 fi
 
 echo "Pastas criadas."
-echo "Proximo: cp .env.example .env  &&  docker compose up -d  &&  bash scripts/bootstrap.sh"
+echo "Próximo: cp .env.example .env  &&  docker compose up -d  &&  bash scripts/bootstrap.sh"

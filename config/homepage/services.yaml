@@ -8,17 +8,17 @@
         icon: plex.png
     - Seerr:
         href: http://localhost:5055
-        description: Pedidos de midia
+        description: Pedidos de mídia
         icon: overseerr.png
     - Wizarr:
         href: http://localhost:5690
-        description: Convites de usuarios
+        description: Convites de usuários
         icon: mdi-account-plus
 
 - Automation:
     - Sonarr:
         href: http://localhost:8989
-        description: Series
+        description: Séries
         icon: sonarr.png
     - Radarr:
         href: http://localhost:7878
@@ -26,7 +26,7 @@
         icon: radarr.png
     - Lidarr:
         href: http://localhost:8686
-        description: Musica
+        description: Música
         icon: lidarr.png
     - Readarr:
         href: http://localhost:8787
@@ -58,7 +58,7 @@
 - Ops:
     - Tautulli:
         href: http://localhost:8181
-        description: Metricas Plex
+        description: Métricas do Plex
         icon: tautulli.png
     - Tdarr:
         href: http://localhost:8265
