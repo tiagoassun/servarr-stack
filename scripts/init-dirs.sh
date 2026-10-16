@@ -20,7 +20,6 @@ CONFIG_ROOT="${CONFIG_ROOT:-./config}"
 DATA_ROOT="${DATA_ROOT:-./data}"
 
 APPS=(
-  gluetun
   prowlarr
   sonarr
   radarr
@@ -86,10 +85,10 @@ if [[ ! -f "${CONFIG_ROOT}/homepage/services.yaml" && -f config/homepage/service
   echo "Criado ${CONFIG_ROOT}/homepage/services.yaml."
 fi
 
-# Bootstrap: defaults versionados já vivem em config/bootstrap/ (repo)
-if [[ -d config/bootstrap ]]; then
-  mkdir -p "${CONFIG_ROOT}/bootstrap"
+# Defaults versionados da configuração de fábrica vivem em config/fabrica/ (repo)
+if [[ -d config/fabrica ]]; then
+  mkdir -p "${CONFIG_ROOT}/fabrica"
 fi
 
 echo "Pastas criadas."
-echo "Próximo: cp .env.example .env  &&  docker compose up -d  &&  bash scripts/bootstrap.sh"
+echo "Próximo: cp .env.example .env  &&  docker compose up -d  &&  bash scripts/configurar-fabrica.sh"

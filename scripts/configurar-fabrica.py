@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap de wiring do servarr-stack (biblioteca vazia).
+"""Configuração de fábrica do servarr-stack (biblioteca vazia).
 
 Configura *Arr + Prowlarr + Bazarr + categorias qBit via API.
 Não adiciona filmes/séries/músicas/livros monitorados.
@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULTS_PATH = ROOT / "config" / "bootstrap" / "defaults.json"
+DEFAULTS_PATH = ROOT / "config" / "fabrica" / "defaults.json"
 
 
 def load_dotenv(path: Path) -> None:
@@ -88,8 +88,8 @@ def resolve_base_url(app: dict[str, Any]) -> str:
     env_name = app.get("baseUrlEnv")
     if env_name and os.environ.get(env_name):
         return os.environ[env_name].rstrip("/")
-    # Bootstrap no host (Portainer no Servidor Pessoal): preferir localhost + porta publicada
-    host_mode = os.environ.get("BOOTSTRAP_MODE", "docker").lower()
+    # Script no host (Portainer no Servidor Pessoal): preferir localhost + porta publicada
+    host_mode = os.environ.get("FABRICA_MODE", "docker").lower()
     if host_mode == "host":
         mapping = {
             "sonarr": os.environ.get("PORT_SONARR", "8989"),
@@ -104,7 +104,7 @@ def resolve_base_url(app: dict[str, Any]) -> str:
         default = app.get("defaultBaseUrl", "")
         for name, port in mapping.items():
             if name in default:
-                host = os.environ.get("BOOTSTRAP_HOST", "127.0.0.1")
+                host = os.environ.get("FABRICA_HOST", "127.0.0.1")
                 return f"http://{host}:{port}"
     return app.get("defaultBaseUrl", "").rstrip("/")
 
@@ -371,7 +371,7 @@ def configure_prowlarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
         else:
             print(f"  [aviso] applications POST {spec['name']} {status}: {body}")
 
-    print("  indexers: não importados aqui (use backup/UI; ver config/bootstrap/)")
+    print("  indexers: não importados aqui (use backup/UI; ver config/fabrica/)")
 
 
 def configure_bazarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
@@ -381,7 +381,7 @@ def configure_bazarr(defaults: dict[str, Any], keys: dict[str, str]) -> None:
     print(f"\n== bazarr ({base}) ==")
     if not key:
         # Bazarr as vezes expoe apikey so apos UI; tentar sem key em settings public
-        print("  [aviso] sem API key - configure Sonarr/Radarr na UI se o bootstrap falhar")
+        print("  [aviso] sem API key - configure Sonarr/Radarr na UI se a configuração de fábrica falhar")
     # Tentativa generica de settings (versões variam)
     sonarr_key = keys.get("sonarr")
     radarr_key = keys.get("radarr")
@@ -434,15 +434,14 @@ def try_qbittorrent_categories(defaults: dict[str, Any]) -> None:
     print("\n== qbittorrent ==")
     qbit = defaults["qbittorrent"]
     password = os.environ.get(qbit.get("passwordEnv", "QBITTORRENT_PASSWORD"), "")
-    host_mode = os.environ.get("BOOTSTRAP_MODE", "docker").lower()
+    host_mode = os.environ.get("FABRICA_MODE", "docker").lower()
     if host_mode == "host":
-        host = os.environ.get("BOOTSTRAP_HOST", "127.0.0.1")
+        host = os.environ.get("FABRICA_HOST", "127.0.0.1")
         port = os.environ.get("PORT_QBITTORRENT", str(qbit["port"]))
         base = f"http://{host}:{port}"
     else:
-        # De dentro da rede Docker o WebUI do qBit responde no gluetun:8080;
-        # deste script no HOST use BOOTSTRAP_MODE=host
-        host = os.environ.get("BOOTSTRAP_HOST", "127.0.0.1")
+        # No host use FABRICA_MODE=host (localhost + porta publicada)
+        host = os.environ.get("FABRICA_HOST", "127.0.0.1")
         port = os.environ.get("PORT_QBITTORRENT", str(qbit["port"]))
         base = f"http://{host}:{port}"
         print(f"  usando WebUI em {base} (defina QBITTORRENT_PASSWORD)")
@@ -516,9 +515,9 @@ def main() -> int:
         print(f"defaults não encontrado: {DEFAULTS_PATH}", file=sys.stderr)
         return 1
     defaults = load_defaults()
-    print("servarr-stack bootstrap")
+    print("servarr-stack configurar-fabrica")
     print(f"CONFIG_ROOT={config_root()}")
-    print(f"BOOTSTRAP_MODE={os.environ.get('BOOTSTRAP_MODE', 'docker')}")
+    print(f"FABRICA_MODE={os.environ.get('FABRICA_MODE', 'docker')}")
 
     keys: dict[str, str] = {}
     for name in ("sonarr", "radarr", "lidarr", "readarr", "whisparr", "prowlarr", "bazarr"):

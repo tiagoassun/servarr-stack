@@ -52,7 +52,7 @@
 - Download:
     - qBittorrent:
         href: http://localhost:8080
-        description: Torrents (via Gluetun)
+        description: Torrents
         icon: qbittorrent.png
 
 - Ops:

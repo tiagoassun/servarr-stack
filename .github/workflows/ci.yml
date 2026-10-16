@@ -25,14 +25,11 @@ jobs:
       - name: Validate shell and Python
         run: |
           bash -n scripts/init-dirs.sh
-          bash -n scripts/bootstrap.sh
-          python3 -m py_compile scripts/bootstrap.py scripts/check-factory.py
+          bash -n scripts/configurar-fabrica.sh
+          python3 -m py_compile scripts/configurar-fabrica.py scripts/check-factory.py
           python3 scripts/check-factory.py
       - name: Validate compose file
         env:
-          VPN_SERVICE_PROVIDER: custom
-          WIREGUARD_PRIVATE_KEY: dummy
-          WIREGUARD_ADDRESSES: 10.0.0.2/32
           PUID: "1000"
           PGID: "1000"
           TZ: America/Sao_Paulo

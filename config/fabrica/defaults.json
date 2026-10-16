@@ -3,7 +3,7 @@
   "waitSeconds": 180,
   "pollIntervalSeconds": 5,
   "qbittorrent": {
-    "host": "gluetun",
+    "host": "qbittorrent",
     "port": 8080,
     "useSsl": false,
     "urlBase": "/",
@@ -18,7 +18,7 @@
     }
   },
   "flaresolverr": {
-    "url": "http://gluetun:8191/"
+    "url": "http://flaresolverr:8191/"
   },
   "mediaManagement": {
     "autoUnmonitorPreviouslyDownloadedEpisodes": false,
@@ -155,12 +155,8 @@
   ],
   "checklistManual": [
     {
-      "app": "gluetun",
-      "acao": "Validar VPN no .env e healthcheck healthy antes do resto."
-    },
-    {
       "app": "qbittorrent",
-      "acao": "Confirmar senha admin (log ou QBITTORRENT_PASSWORD). Categorias são criadas pelo bootstrap quando a API autenticar."
+      "acao": "Confirmar senha admin (log ou QBITTORRENT_PASSWORD). Categorias são criadas pelo script de configuração de fábrica quando a API autenticar."
     },
     {
       "app": "profilarr",
@@ -168,7 +164,7 @@
     },
     {
       "app": "prowlarr-indexers",
-      "acao": "Importar backup de indexers (config/bootstrap/prowlarr-indexers.json local, não versionar secrets) ou cadastrar na UI. O bootstrap só faz wiring."
+      "acao": "Importar backup de indexers (config/fabrica/prowlarr-indexers.json local, não versionar secrets) ou cadastrar na UI. O script só faz o wiring."
     },
     {
       "app": "plex",
@@ -208,7 +204,7 @@
     },
     {
       "app": "flaresolverr",
-      "acao": "Registrado no Prowlarr pelo bootstrap (http://gluetun:8191/)."
+      "acao": "Registrado no Prowlarr pelo script de configuração de fábrica (http://flaresolverr:8191/)."
     }
   ]
 }
