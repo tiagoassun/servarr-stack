@@ -1,0 +1,4 @@
+{
+  "_comentario": "Copie para prowlarr-indexers.json (gitignored) com export/backup do Prowlarr. Não commite API keys, cookies ou senhas. O bootstrap não importa este arquivo automaticamente ainda — use a UI Import ou evolua o script depois.",
+  "indexers": []
+}
