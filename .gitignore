@@ -5,8 +5,8 @@
 
 # Dados e configs gerados em runtime
 config/*
-!config/bootstrap/
-config/bootstrap/prowlarr-indexers.json
+!config/fabrica/
+config/fabrica/prowlarr-indexers.json
 !config/kometa/
 config/kometa/*
 !config/kometa/config.yml.example

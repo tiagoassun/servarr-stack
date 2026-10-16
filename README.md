@@ -14,11 +14,11 @@ Destino previsto: **Servidor Pessoal** / **Notebook Servidor** com **Portainer**
 | [Sonarr](https://wiki.servarr.com/sonarr) | Séries | 8989 | `sonarr` |
 | [Radarr](https://wiki.servarr.com/radarr) | Filmes | 7878 | `radarr` |
 | [Lidarr](https://wiki.servarr.com/lidarr) | Música | 8686 | `lidarr` |
-| [Readarr](https://wiki.servarr.com/readarr) | Livros (`develop`) | 8787 | `readarr` |
+| [Readarr](https://wiki.servarr.com/readarr) | Livros (`0.4.18-develop`) | 8787 | `readarr` |
 | [Whisparr](https://wiki.servarr.com/whisparr) | Adulto (hotio) | 6969 | `whisparr` |
 | [Bazarr](https://www.bazarr.media/) | Legendas | 6767 | `bazarr` |
 | [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) | Cloudflare | 8191 | `flaresolverr` |
-| [qBittorrent](https://www.qbittorrent.org/) | Torrents | 8080 | `qbittorrent` |
+| [qBittorrent](https://www.qbittorrent.org/) | Torrents (`5.1.4`) | 8080 | `qbittorrent` |
 | [Unpackerr](https://github.com/Unpackerr/unpackerr) | Extrai `.rar`/`.zip` | - | `unpackerr` |
 | [Plex](https://www.plex.tv/) | Media server | 32400 | `plex` |
 | [Seerr](https://seerr.dev/) | Pedidos de mídia | 5055 | `seerr` |
@@ -72,7 +72,7 @@ bash scripts/configurar-fabrica.sh
 O script (`scripts/configurar-fabrica.py` + `config/fabrica/defaults.json`):
 
 - Cria root folders vazios nos *Arr (`/data/media/...`)
-- Cadastra qBittorrent (host `qbittorrent`) e categorias
+- Cadastra qBittorrent (host `qbittorrent`), libera a WebUI na rede Docker e cria as categorias
 - Liga hardlink
 - Registra FlareSolverr no Prowlarr e sync Prowlarr -> *Arr
 - Tenta ligar Bazarr a Sonarr/Radarr **sem** popular Wanted de catálogo antigo
@@ -160,6 +160,7 @@ docker compose down
 ## Notas
 
 - `DATA_ROOT` em um único filesystem.
-- Readarr: tag `develop`. Whisparr: hotio.
+- Readarr: tag `0.4.18-develop` (a tag flutuante `develop` não publica manifesto amd64). Whisparr: hotio.
+- qBittorrent: tag `5.1.4`. A linha 5.2 responde o login com HTTP 204 vazio; Readarr e Whisparr 2.2 tratam isso como falha de autenticação.
 - Instalação nova = catálogo vazio; só configuração e (opcionalmente) indexers.
 - Lista de tools oficiais: https://wiki.servarr.com/useful-tools

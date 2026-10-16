@@ -126,7 +126,7 @@ services:
     <<: *restart
 
   readarr:
-    image: lscr.io/linuxserver/readarr:develop
+    image: lscr.io/linuxserver/readarr:0.4.18-develop
     container_name: readarr
     environment:
       <<: *common-env
@@ -195,7 +195,7 @@ services:
 
   # --- Download client ---
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
+    image: lscr.io/linuxserver/qbittorrent:5.1.4
     container_name: qbittorrent
     environment:
       <<: *common-env
