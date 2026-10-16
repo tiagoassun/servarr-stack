@@ -39,3 +39,9 @@ feature/<descricao-kebab>  →  hml  →  main
 - Backlog (prioridade 5): Docker Compose *Arr + companions (Bazarr, qBittorrent, Plex, Gluetun, Seerr, etc.).
 - MVP = stack documentada estável no Servidor Pessoal; config de fábrica com biblioteca vazia.
 - Não commitar `.env` real, claim tokens, senhas VPN ou credenciais de indexers.
+
+## Ambiente DEV (Agents Window / Cloud Agent)
+
+- Quando houver `dev`: `feature/*` -> PR -> `dev` (Agents podem abrir/aprovar/mergear). `hml`/`main` só humano.
+- Na `feature/*` e no Cloud da missão: editar, testar, commit, push e PR/merge para `dev` **sem** pedir lote a cada passo (brief/pedido da missão já autoriza). Ver `__Confg-Projetos/AGENTS.md`.
+- **Proibido** para Agents: merge/push em `hml` ou `main`.
