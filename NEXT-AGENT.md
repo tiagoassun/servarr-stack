@@ -1,7 +1,7 @@
 # NEXT-AGENT.md
 
 Fonte de intenção e escopo: meta-repo
-`/d/Docs Locais/Git/__Confg-Projetos/projetos/12-servarr-stack/NEXT-AGENT.md`
+`/d/Docs Locais/Git/__Confg-Projetos/projetos/05-servarr-stack/NEXT-AGENT.md`
 
 Leia **esse** arquivo (e `AGENTS.md` / `MVP.md` / `ROADMAP.md` da mesma pasta) antes de editar código aqui.
 
