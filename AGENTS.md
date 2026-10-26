@@ -5,7 +5,7 @@ Instruções para agentes neste repositório de código.
 ## Ordem de leitura (obrigatória)
 
 1. Meta-repo `__Confg-Projetos`: `PRIORIDADE.md` e `WIP.md`.
-2. Pasta do projeto: `d:/Docs Locais/Git/__Confg-Projetos/projetos/05-servarr-stack/` — ler `AGENTS.md`, `NEXT-AGENT.md`, `SPEC.md`, `MVP.md`, `ROADMAP.md` (e demais docs conforme a tarefa) **antes** de editar código aqui.
+2. Pasta do projeto: `d:/Docs Locais/Git/__Confg-Projetos/projetos/06-servarr-stack/` — ler `AGENTS.md`, `NEXT-AGENT.md`, `SPEC.md`, `MVP.md`, `ROADMAP.md` (e demais docs conforme a tarefa) **antes** de editar código aqui.
 3. Só então este repo (`servarr-stack`); há ponte em `NEXT-AGENT.md` na raiz (brief canônico no meta).
 
 O meta-repo é a fonte de verdade de intenção e escopo.
@@ -36,7 +36,7 @@ feature/<descricao-kebab>  →  hml  →  main
 
 ## Notas do produto
 
-- Backlog (prioridade 5): Docker Compose *Arr + companions (Bazarr, qBittorrent, Plex, Seerr, etc.).
+- Backlog (prioridade 6): Docker Compose *Arr + companions (Bazarr, qBittorrent, Plex, Seerr, etc.).
 - MVP = stack documentada estável no Servidor Pessoal; config de fábrica com biblioteca vazia (`scripts/configurar-fabrica.sh`).
 - Sem Gluetun neste ciclo: qBittorrent e FlareSolverr na rede `servarr`.
 - Não commitar `.env` real, claim tokens ou credenciais de indexers.
